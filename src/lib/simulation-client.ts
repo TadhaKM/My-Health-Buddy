@@ -1,8 +1,20 @@
 import type { Habits, OrganId, OrganRisk, RiskLevel, TimelineYear } from '@/lib/health-types';
 import type { HabitsInput, OrganName, YearKey, SimulationResponse } from '../../lib/types';
 import { normalizeSimulationResponse } from '../../lib/simulation';
+import { habitsToPayload } from '@/lib/preset-contract';
 
 export type { SimulationResponse };
+export type SimulationUiState = 'idle' | 'simulating' | 'done' | 'failed';
+
+export const SIMULATION_TIMING_TARGET_MS = 2500;
+export const SIMULATION_TIMEOUT_MS = 7000;
+
+export type SimulationRunResult = {
+  response: SimulationResponse;
+  uiState: Exclude<SimulationUiState, 'idle'>;
+  durationMs: number;
+  usedFallback: boolean;
+};
 
 const YEAR_LOOKUP: Record<TimelineYear, YearKey> = {
   0: '0',
@@ -24,28 +36,28 @@ const SCORE_BASELINE: Record<OrganName, number> = {
 const IMPACT_WEIGHTS = {
   smoking: {
     none: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    occasional: { lungs: 14, heart: 9, liver: 0, brain: 4, body_fat: 0 },
-    daily: { lungs: 32, heart: 18, liver: 0, brain: 8, body_fat: 0 },
+    occasional: { lungs: 18, heart: 12, liver: 0, brain: 5, body_fat: 0 },
+    daily: { lungs: 42, heart: 26, liver: 0, brain: 10, body_fat: 0 },
   },
   alcohol: {
     none: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    weekends: { lungs: 0, heart: 4, liver: 12, brain: 8, body_fat: 0 },
-    frequent: { lungs: 0, heart: 8, liver: 30, brain: 18, body_fat: 0 },
+    weekends: { lungs: 0, heart: 5, liver: 15, brain: 10, body_fat: 0 },
+    frequent: { lungs: 0, heart: 10, liver: 36, brain: 24, body_fat: 0 },
   },
   sleep: {
     '8h': { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    '6h': { lungs: 0, heart: 9, liver: 0, brain: 12, body_fat: 0 },
-    '5h': { lungs: 0, heart: 18, liver: 0, brain: 24, body_fat: 0 },
+    '6h': { lungs: 0, heart: 11, liver: 0, brain: 14, body_fat: 0 },
+    '5h': { lungs: 0, heart: 24, liver: 0, brain: 30, body_fat: 0 },
   },
   exercise: {
     regular: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    low: { lungs: 0, heart: 14, liver: 0, brain: 0, body_fat: 16 },
-    none: { lungs: 0, heart: 26, liver: 0, brain: 0, body_fat: 30 },
+    low: { lungs: 0, heart: 18, liver: 0, brain: 0, body_fat: 20 },
+    none: { lungs: 0, heart: 32, liver: 0, brain: 0, body_fat: 36 },
   },
   diet: {
     balanced: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    average: { lungs: 0, heart: 6, liver: 8, brain: 0, body_fat: 12 },
-    poor: { lungs: 0, heart: 12, liver: 18, brain: 0, body_fat: 28 },
+    average: { lungs: 0, heart: 8, liver: 10, brain: 0, body_fat: 14 },
+    poor: { lungs: 0, heart: 16, liver: 24, brain: 0, body_fat: 34 },
   },
 } as const;
 
@@ -57,12 +69,6 @@ const ORGAN_LABELS: Record<OrganId, string> = {
   'body-fat': 'Body Fat',
 };
 
-const SMOKING_MAP: HabitsInput['smoking'][] = ['none', 'occasional', 'daily'];
-const ALCOHOL_MAP: HabitsInput['alcohol'][] = ['none', 'weekends', 'frequent'];
-const SLEEP_MAP: HabitsInput['sleep'][] = ['8h', '6h', '5h'];
-const EXERCISE_MAP: HabitsInput['exercise'][] = ['regular', 'low', 'none'];
-const DIET_MAP: HabitsInput['diet'][] = ['balanced', 'average', 'poor'];
-
 function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -71,22 +77,11 @@ function toRisk(score: number): RiskLevel {
   return score < 20 ? 'low' : score < 45 ? 'moderate' : score < 70 ? 'high' : 'critical';
 }
 
-function toHabitsInput(habits: Habits, chatText?: string): HabitsInput {
-  return {
-    smoking: SMOKING_MAP[habits.smoking],
-    alcohol: ALCOHOL_MAP[habits.alcohol],
-    sleep: SLEEP_MAP[habits.sleep],
-    exercise: EXERCISE_MAP[habits.exercise],
-    diet: DIET_MAP[habits.diet],
-    chatText,
-  };
-}
-
 function makeTimeline(year0Value: number): Record<YearKey, number> {
   const y0 = clampScore(year0Value);
-  const y5 = clampScore(y0 + Math.max(2, Math.round(y0 * 0.12)));
-  const y10 = clampScore(Math.max(y5, y5 + Math.max(2, Math.round(y5 * 0.15))));
-  const y20 = clampScore(Math.max(y10, y10 + Math.max(3, Math.round(y10 * 0.25))));
+  const y5 = clampScore(y0 + Math.max(3, Math.round(y0 * 0.15)));
+  const y10 = clampScore(Math.max(y5, y5 + Math.max(3, Math.round(y5 * 0.18))));
+  const y20 = clampScore(Math.max(y10, y10 + Math.max(4, Math.round(y10 * 0.3))));
 
   return {
     '0': y0,
@@ -155,7 +150,7 @@ function organSummary(organ: OrganId, risk: RiskLevel): string {
 }
 
 export function generateLocalSimulation(habits: Habits): SimulationResponse {
-  const input = toHabitsInput(habits);
+  const input = habitsToPayload(habits);
   const scores: Record<OrganName, number> = { ...SCORE_BASELINE };
 
   const smokingImpact = IMPACT_WEIGHTS.smoking[input.smoking];
@@ -189,24 +184,51 @@ export function generateLocalSimulation(habits: Habits): SimulationResponse {
 }
 
 export async function fetchSimulation(habits: Habits, chatText?: string): Promise<SimulationResponse> {
+  const result = await runSimulation(habits, chatText);
+  return result.response;
+}
+
+export async function runSimulation(habits: Habits, chatText?: string): Promise<SimulationRunResult> {
   const fallback = generateLocalSimulation(habits);
   const endpoint = import.meta.env.VITE_SIMULATION_API_URL || '/api/simulate';
+  const startedAt = performance.now();
+  const abortController = new AbortController();
+  const timeoutHandle = setTimeout(() => abortController.abort(), SIMULATION_TIMEOUT_MS);
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(toHabitsInput(habits, chatText)),
+      body: JSON.stringify(habitsToPayload(habits, chatText)),
+      signal: abortController.signal,
     });
+    clearTimeout(timeoutHandle);
+    const durationMs = Math.round(performance.now() - startedAt);
 
     if (!response.ok) {
-      return fallback;
+      return {
+        response: fallback,
+        uiState: 'failed',
+        durationMs,
+        usedFallback: true,
+      };
     }
 
     const data = await response.json();
-    return normalizeSimulationResponse(data, fallback);
+    return {
+      response: normalizeSimulationResponse(data, fallback),
+      uiState: 'done',
+      durationMs,
+      usedFallback: false,
+    };
   } catch {
-    return fallback;
+    clearTimeout(timeoutHandle);
+    return {
+      response: fallback,
+      uiState: 'failed',
+      durationMs: Math.round(performance.now() - startedAt),
+      usedFallback: true,
+    };
   }
 }
 

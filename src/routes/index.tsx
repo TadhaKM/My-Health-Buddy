@@ -8,6 +8,7 @@ import TimelineSelector from '@/components/TimelineSelector';
 import AISummaryCard from '@/components/AISummaryCard';
 import OrganInsightCard from '@/components/OrganInsightCard';
 import ChatInput from '@/components/ChatInput';
+import HealthDataConnector from '@/components/HealthDataConnector';
 import { toast } from 'sonner';
 import {
   type Habits,
@@ -17,7 +18,13 @@ import {
   DEFAULT_HABITS,
   PRESETS,
 } from '@/lib/health-types';
-import { fetchSimulation, generateLocalSimulation, toOrganRisks } from '@/lib/simulation-client';
+import { 
+  generateLocalSimulation, 
+  SIMULATION_TIMING_TARGET_MS,
+  toOrganRisks, 
+  runSimulation, 
+  type SimulationUiState 
+} from '@/lib/simulation-client';
 
 export const Route = createFileRoute('/')({
   component: FutureYou,
@@ -29,26 +36,29 @@ function FutureYou() {
   const [selectedOrgan, setSelectedOrgan] = useState<OrganRisk | null>(null);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
-  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulationState, setSimulationState] = useState<SimulationUiState>('idle');
+  const [simulationDurationMs, setSimulationDurationMs] = useState<number>(0);
   const [simulation, setSimulation] = useState(() => generateLocalSimulation(DEFAULT_HABITS));
 
   useEffect(() => {
     let isActive = true;
 
     async function syncSimulation() {
-      setSimulationLoading(true);
-      const nextSimulation = await fetchSimulation(habits);
+      setSimulationState('simulating');
+      const runResult = await runSimulation(habits);
       if (isActive) {
-        setSimulation(nextSimulation);
+        setSimulation(runResult.response);
+        setSimulationState(runResult.uiState);
+        setSimulationDurationMs(runResult.durationMs);
         setSelectedOrgan(null);
-        setSimulationLoading(false);
       }
     }
 
     syncSimulation().catch(() => {
       if (isActive) {
         setSimulation(generateLocalSimulation(habits));
-        setSimulationLoading(false);
+        setSimulationState('failed');
+        setSimulationDurationMs(0);
       }
     });
 
@@ -108,6 +118,11 @@ function FutureYou() {
   const applyPreset = useCallback((presetKey: string) => {
     const preset = PRESETS[presetKey];
     if (preset) setHabits(preset.habits);
+  }, []);
+
+  const applyImportedHealthData = useCallback((nextHabits: Habits) => {
+    setHabits(nextHabits);
+    toast.success('Health data mapped to lifestyle habits.');
   }, []);
 
   return (
@@ -182,6 +197,8 @@ function FutureYou() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
+            <HealthDataConnector habits={habits} onApply={applyImportedHealthData} />
+
             {/* Habits */}
             <div className="card-elevated rounded-2xl p-5 space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -199,9 +216,23 @@ function FutureYou() {
             {/* AI Summary */}
             <AISummaryCard risks={risks} years={years} />
 
-            {simulationLoading && (
-              <div className="text-xs text-primary font-medium px-1">Refreshing simulation...</div>
-            )}
+            <div className="px-1 text-xs font-medium">
+              {simulationState === 'simulating' && (
+                <span className="text-primary">Refreshing simulation...</span>
+              )}
+              {simulationState === 'done' && simulationDurationMs > SIMULATION_TIMING_TARGET_MS && (
+                <span className="text-muted-foreground">Simulation complete (slow path, {simulationDurationMs}ms)</span>
+              )}
+              {simulationState === 'done' && simulationDurationMs > 0 && simulationDurationMs <= SIMULATION_TIMING_TARGET_MS && (
+                <span className="text-emerald-400">Simulation complete ({simulationDurationMs}ms)</span>
+              )}
+              {simulationState === 'failed' && (
+                <span className="text-amber-300">Live AI unavailable, showing reliable fallback projection.</span>
+              )}
+              {simulationState === 'idle' && (
+                <span className="text-muted-foreground">Ready to simulate.</span>
+              )}
+            </div>
 
             {/* Organ Insight */}
             <OrganInsightCard organ={selectedOrgan} />

@@ -1,7 +1,7 @@
 import type { HabitsInput, OrganName, YearKey, SimulationResponse } from "./types";
 
-const ORGANS: OrganName[] = ["lungs", "heart", "liver", "brain", "body_fat"];
-const YEARS: YearKey[] = ["0", "5", "10", "20"];
+export const ORGANS: OrganName[] = ["lungs", "heart", "liver", "brain", "body_fat"];
+export const YEARS: YearKey[] = ["0", "5", "10", "20"];
 
 const SCORE_BASELINE: Record<OrganName, number> = {
   lungs: 6,
@@ -14,28 +14,28 @@ const SCORE_BASELINE: Record<OrganName, number> = {
 const IMPACT_WEIGHTS = {
   smoking: {
     none: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    occasional: { lungs: 14, heart: 9, liver: 0, brain: 4, body_fat: 0 },
-    daily: { lungs: 32, heart: 18, liver: 0, brain: 8, body_fat: 0 },
+    occasional: { lungs: 18, heart: 12, liver: 0, brain: 5, body_fat: 0 },
+    daily: { lungs: 42, heart: 26, liver: 0, brain: 10, body_fat: 0 },
   },
   alcohol: {
     none: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    weekends: { lungs: 0, heart: 4, liver: 12, brain: 8, body_fat: 0 },
-    frequent: { lungs: 0, heart: 8, liver: 30, brain: 18, body_fat: 0 },
+    weekends: { lungs: 0, heart: 5, liver: 15, brain: 10, body_fat: 0 },
+    frequent: { lungs: 0, heart: 10, liver: 36, brain: 24, body_fat: 0 },
   },
   sleep: {
     "8h": { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    "6h": { lungs: 0, heart: 9, liver: 0, brain: 12, body_fat: 0 },
-    "5h": { lungs: 0, heart: 18, liver: 0, brain: 24, body_fat: 0 },
+    "6h": { lungs: 0, heart: 11, liver: 0, brain: 14, body_fat: 0 },
+    "5h": { lungs: 0, heart: 24, liver: 0, brain: 30, body_fat: 0 },
   },
   exercise: {
     regular: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    low: { lungs: 0, heart: 14, liver: 0, brain: 0, body_fat: 16 },
-    none: { lungs: 0, heart: 26, liver: 0, brain: 0, body_fat: 30 },
+    low: { lungs: 0, heart: 18, liver: 0, brain: 0, body_fat: 20 },
+    none: { lungs: 0, heart: 32, liver: 0, brain: 0, body_fat: 36 },
   },
   diet: {
     balanced: { lungs: 0, heart: 0, liver: 0, brain: 0, body_fat: 0 },
-    average: { lungs: 0, heart: 6, liver: 8, brain: 0, body_fat: 12 },
-    poor: { lungs: 0, heart: 12, liver: 18, brain: 0, body_fat: 28 },
+    average: { lungs: 0, heart: 8, liver: 10, brain: 0, body_fat: 14 },
+    poor: { lungs: 0, heart: 16, liver: 24, brain: 0, body_fat: 34 },
   },
 } as const;
 
@@ -45,9 +45,9 @@ function clamp(value: number): number {
 
 function makeTimeline(year0: number): Record<YearKey, number> {
   const y0 = clamp(year0);
-  const y5 = clamp(y0 + Math.max(2, Math.round(y0 * 0.12)));
-  const y10 = clamp(Math.max(y5, y5 + Math.max(2, Math.round(y5 * 0.15))));
-  const y20 = clamp(Math.max(y10, y10 + Math.max(3, Math.round(y10 * 0.25))));
+  const y5 = clamp(y0 + Math.max(3, Math.round(y0 * 0.15)));
+  const y10 = clamp(Math.max(y5, y5 + Math.max(3, Math.round(y5 * 0.18))));
+  const y20 = clamp(Math.max(y10, y10 + Math.max(4, Math.round(y10 * 0.3))));
   return { "0": y0, "5": y5, "10": y10, "20": y20 };
 }
 
@@ -131,23 +131,49 @@ Return ONLY valid JSON in this exact format, no markdown, no explanation:
 }`;
 }
 
-function parseMaybeJson(raw: unknown): unknown {
-  if (typeof raw === "object" && raw !== null) return raw;
-  if (typeof raw !== "string") return null;
+export type NormalizeMeta = {
+  parseError: string | null;
+  usedJsonExtraction: boolean;
+  repairedValueCount: number;
+  normalizedSummaryFallback: boolean;
+};
+
+type ParsedResult = {
+  value: unknown;
+  parseError: string | null;
+  usedJsonExtraction: boolean;
+};
+
+function parseMaybeJson(raw: unknown): ParsedResult {
+  if (typeof raw === "object" && raw !== null) {
+    return { value: raw, parseError: null, usedJsonExtraction: false };
+  }
+  if (typeof raw !== "string") {
+    return { value: null, parseError: "non-string non-object raw model output", usedJsonExtraction: false };
+  }
 
   const trimmed = raw.trim();
-  if (!trimmed) return null;
+  if (!trimmed) {
+    return { value: null, parseError: "empty model output", usedJsonExtraction: false };
+  }
 
   try {
-    return JSON.parse(trimmed);
-  } catch {
+    return { value: JSON.parse(trimmed), parseError: null, usedJsonExtraction: false };
+  } catch (e) {
+    const directError = e instanceof Error ? e.message : String(e);
     // Try extracting JSON object from surrounding text
     const match = trimmed.match(/\{[\s\S]*\}/);
-    if (!match) return null;
+    if (!match) {
+      return { value: null, parseError: directError, usedJsonExtraction: false };
+    }
     try {
-      return JSON.parse(match[0]);
-    } catch {
-      return null;
+      return { value: JSON.parse(match[0]), parseError: directError, usedJsonExtraction: true };
+    } catch (extractErr) {
+      return {
+        value: null,
+        parseError: extractErr instanceof Error ? extractErr.message : String(extractErr),
+        usedJsonExtraction: true,
+      };
     }
   }
 }
@@ -165,10 +191,19 @@ export function normalizeSimulationResponse(
   raw: unknown,
   fallback: SimulationResponse
 ): SimulationResponse {
-  const parsed = parseMaybeJson(raw) as {
+  return normalizeSimulationResponseWithMeta(raw, fallback).response;
+}
+
+export function normalizeSimulationResponseWithMeta(
+  raw: unknown,
+  fallback: SimulationResponse
+): { response: SimulationResponse; meta: NormalizeMeta } {
+  const parsedResult = parseMaybeJson(raw);
+  const parsed = parsedResult.value as {
     organs?: Partial<Record<string, Partial<Record<YearKey, unknown>>>>;
     summary?: unknown;
   } | null;
+  let repairedValueCount = 0;
 
   const organs = ORGANS.reduce((acc, organ) => {
     const source =
@@ -176,7 +211,13 @@ export function normalizeSimulationResponse(
       (organ === "body_fat" ? parsed?.organs?.["body-fat"] : undefined);
 
     const timeline = YEARS.reduce((tl, year) => {
-      tl[year] = toSafeInt(source?.[year]) ?? fallback.organs[organ][year];
+      const safeValue = toSafeInt(source?.[year]);
+      if (safeValue === null) {
+        repairedValueCount += 1;
+        tl[year] = fallback.organs[organ][year];
+      } else {
+        tl[year] = safeValue;
+      }
       return tl;
     }, {} as Record<YearKey, number>);
 
@@ -191,6 +232,7 @@ export function normalizeSimulationResponse(
   }, {} as Record<OrganName, Record<YearKey, number>>);
 
   const rawSummary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";
+  const summaryFromFallback = !rawSummary;
   const summary = (rawSummary || fallback.summary)
     .replace(/\s+/g, " ")
     .split(/(?<=[.!?])\s+/)
@@ -199,5 +241,13 @@ export function normalizeSimulationResponse(
     .join(" ")
     .trim();
 
-  return { organs, summary: summary || fallback.summary };
+  return {
+    response: { organs, summary: summary || fallback.summary },
+    meta: {
+      parseError: parsedResult.parseError,
+      usedJsonExtraction: parsedResult.usedJsonExtraction,
+      repairedValueCount,
+      normalizedSummaryFallback: summaryFromFallback,
+    },
+  };
 }

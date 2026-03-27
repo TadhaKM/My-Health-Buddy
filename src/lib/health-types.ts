@@ -1,4 +1,5 @@
 export type HabitLevel = 0 | 1 | 2;
+import { PRESET_TO_PAYLOAD, PRESET_UI_LABELS, payloadToHabits } from '@/lib/preset-contract';
 
 export interface HabitConfig {
   id: string;
@@ -48,10 +49,10 @@ export const DEFAULT_HABITS: Habits = {
 };
 
 export const PRESETS: Record<string, { label: string; habits: Habits }> = {
-  healthy: { label: '💚 Healthy', habits: { smoking: 0, alcohol: 0, sleep: 0, exercise: 0, diet: 0 } },
-  smoker: { label: '🚬 Smoker', habits: { smoking: 2, alcohol: 1, sleep: 1, exercise: 1, diet: 1 } },
-  poorSleep: { label: '😵 Poor Sleep', habits: { smoking: 0, alcohol: 1, sleep: 2, exercise: 1, diet: 1 } },
-  stressCombo: { label: '⚡ Stress Combo', habits: { smoking: 1, alcohol: 2, sleep: 2, exercise: 2, diet: 2 } },
+  healthy: { label: PRESET_UI_LABELS.healthy, habits: payloadToHabits(PRESET_TO_PAYLOAD.healthy.payload) },
+  smoker: { label: PRESET_UI_LABELS.smoker, habits: payloadToHabits(PRESET_TO_PAYLOAD.smoker.payload) },
+  poorSleep: { label: PRESET_UI_LABELS.poorSleep, habits: payloadToHabits(PRESET_TO_PAYLOAD.poorSleep.payload) },
+  stressCombo: { label: PRESET_UI_LABELS.stressCombo, habits: payloadToHabits(PRESET_TO_PAYLOAD.stressCombo.payload) },
 };
 
 // Simple risk calculator (no medical accuracy needed)

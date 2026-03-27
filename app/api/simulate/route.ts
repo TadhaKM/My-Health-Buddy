@@ -15,7 +15,7 @@ export async function OPTIONS() {
 import {
   generateMockSimulation,
   buildSimulationPrompt,
-  normalizeSimulationResponse,
+  normalizeSimulationResponseWithMeta,
 } from "../../../lib/simulation";
 
 const VALID_VALUES: Record<keyof Omit<HabitsInput, "chatText">, string[]> = {
@@ -45,6 +45,8 @@ function validateInput(body: unknown): HabitsInput | null {
 }
 
 export async function POST(request: Request) {
+  const requestId = crypto.randomUUID();
+  const startedAt = performance.now();
   let body: unknown;
   try {
     body = await request.json();
@@ -65,25 +67,65 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    console.info(
+      JSON.stringify({
+        event: "simulate.request",
+        requestId,
+        usedFallback: true,
+        reason: "missing_api_key",
+        modelLatencyMs: 0,
+        totalLatencyMs: Math.round(performance.now() - startedAt),
+      })
+    );
     return NextResponse.json(fallback);
   }
 
   try {
     const client = new Anthropic({ apiKey });
     const prompt = buildSimulationPrompt(input);
+    const modelStartAt = performance.now();
 
     const message = await client.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
+    const modelLatencyMs = Math.round(performance.now() - modelStartAt);
 
     const textBlock = message.content.find((b) => b.type === "text");
     const raw = textBlock?.text ?? "";
+    const normalized = normalizeSimulationResponseWithMeta(raw, fallback);
 
-    return NextResponse.json(normalizeSimulationResponse(raw, fallback));
+    console.info(
+      JSON.stringify({
+        event: "simulate.request",
+        requestId,
+        usedFallback: false,
+        parseError: normalized.meta.parseError,
+        usedJsonExtraction: normalized.meta.usedJsonExtraction,
+        repairedValueCount: normalized.meta.repairedValueCount,
+        normalizedSummaryFallback: normalized.meta.normalizedSummaryFallback,
+        modelLatencyMs,
+        totalLatencyMs: Math.round(performance.now() - startedAt),
+      })
+    );
+
+    return NextResponse.json(normalized.response);
   } catch (err) {
     console.error("Claude API error:", err);
+
+    console.info(
+      JSON.stringify({
+        event: "simulate.request",
+        requestId,
+        usedFallback: true,
+        reason: "model_error",
+        modelLatencyMs: null,
+        totalLatencyMs: Math.round(performance.now() - startedAt),
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+
     return NextResponse.json(fallback);
   }
 }
