@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { RotateCcw } from 'lucide-react';
 import BodyVisualization3D from '@/components/BodyVisualization3D';
 import HabitSelector from '@/components/HabitSelector';
 import DemographicsInput from '@/components/DemographicsInput';
@@ -9,6 +10,7 @@ import TimelineSelector from '@/components/TimelineSelector';
 import AISummaryCard from '@/components/AISummaryCard';
 import OrganInsightCard from '@/components/OrganInsightCard';
 import ChatInput from '@/components/ChatInput';
+import HealthReportPDF from '@/components/HealthReportPDF';
 import { toast } from 'sonner';
 import {
   type Habits,
