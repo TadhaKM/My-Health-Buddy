@@ -91,7 +91,7 @@ export default function AISummaryCard({ risks, years }: AISummaryCardProps) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className={`card-glass rounded-xl border ${styles.bg} ${styles.border} overflow-hidden`}
+            className={`rounded-xl border ${styles.bg} ${styles.border} overflow-hidden`}
           >
             <button
               onClick={() => setExpandedOrgan(isExpanded ? null : risk.organ)}
@@ -143,7 +143,7 @@ export default function AISummaryCard({ risks, years }: AISummaryCardProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: criticalRisks.length * 0.05 }}
-          className="card-glass rounded-xl border bg-severity-warn/4 border-severity-warn/15 p-3.5"
+          className="rounded-xl border bg-severity-warn/[0.04] border-severity-warn/[0.15] p-3.5"
         >
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-3.5 h-3.5 text-severity-warn" />
@@ -170,7 +170,7 @@ export default function AISummaryCard({ risks, years }: AISummaryCardProps) {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: (criticalRisks.length + 1) * 0.05 }}
-          className="card-glass rounded-xl border bg-severity-good/4 border-severity-good/15 p-3.5"
+          className="rounded-xl border bg-severity-good/[0.04] border-severity-good/[0.15] p-3.5"
         >
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 className="w-3.5 h-3.5 text-severity-good" />

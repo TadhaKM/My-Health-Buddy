@@ -10,7 +10,7 @@ import HealthReportPDF from '@/components/HealthReportPDF';
 import AppHeader from '@/components/AppHeader';
 import { useHealthState } from '@/hooks/use-health-state';
 import { toast } from 'sonner';
-import type { OrganRisk, HabitLevel } from '@/lib/health-types';
+import { PRESETS, type OrganRisk, type HabitLevel } from '@/lib/health-types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://tglfrgxkinkoxbocadum.supabase.co';
 const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnbGZyZ3hraW5rb3hib2NhZHVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDg4MjEsImV4cCI6MjA5MDE4NDgyMX0.l6qzeNnFKwKt6D1pj6qQvQ4jmPg6f2lZ9WFFGX6ZJck';
@@ -119,6 +119,20 @@ function DashboardPage() {
 
           <HealthProgressBar risks={risks} demographics={demographics} habits={habits} years={years} />
           <KPIStrip risks={risks} onOrganHover={setHoveredOrgan} hoveredOrgan={hoveredOrgan} />
+
+          {/* Quick Presets */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground font-medium">Quick presets:</span>
+            {Object.entries(PRESETS).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => setHabits(preset.habits)}
+                className="text-xs px-3 py-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Body Visualization */}
