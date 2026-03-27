@@ -68,7 +68,8 @@ function FutureYou() {
     setChatLoading(true);
 
     try {
-      const resp = await fetch('/api/parse-habits', {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+      const resp = await fetch(`${apiBase}/api/parse-habits`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, currentHabits: habits }),

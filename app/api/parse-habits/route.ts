@@ -98,6 +98,7 @@ export async function POST(request: Request) {
     if (err instanceof Anthropic.AuthenticationError) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
     }
-    return NextResponse.json({ error: "AI request failed" }, { status: 500 });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "AI request failed", detail: errMsg }, { status: 500 });
   }
 }
