@@ -1,3 +1,5 @@
+import type { BloodBiomarkers } from './biomarker-types';
+
 export type HabitLevel = 0 | 1 | 2;
 
 export interface HabitConfig {
