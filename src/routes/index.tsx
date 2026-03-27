@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Clock } from 'lucide-react';
 import BodyVisualization3D from '@/components/BodyVisualization3D';
 import HabitSelector from '@/components/HabitSelector';
 import DemographicsInput from '@/components/DemographicsInput';
@@ -11,7 +11,8 @@ import AISummaryCard from '@/components/AISummaryCard';
 import OrganInsightCard from '@/components/OrganInsightCard';
 import ChatInput from '@/components/ChatInput';
 import HealthReportPDF from '@/components/HealthReportPDF';
-import HealthScoreRing from '@/components/HealthScoreRing';
+import KPIStrip from '@/components/KPIStrip';
+import BodyContextPanel from '@/components/BodyContextPanel';
 import WhatIfMode from '@/components/WhatIfMode';
 import { toast } from 'sonner';
 import {
@@ -38,11 +39,13 @@ function FutureYou() {
   const [demographics, setDemographics] = useState<Demographics>(DEFAULT_DEMOGRAPHICS);
   const [years, setYears] = useState<TimelineYear>(0);
   const [selectedOrgan, setSelectedOrgan] = useState<OrganRisk | null>(null);
+  const [hoveredOrgan, setHoveredOrgan] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
 
   const risks = calculateOrganRisks(habits, years, demographics);
   const avgScore = Math.round(risks.reduce((sum, r) => sum + r.score, 0) / risks.length);
+  const now = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const handleOrganClick = useCallback((organ: OrganRisk) => {
     setSelectedOrgan(organ);
@@ -110,157 +113,223 @@ function FutureYou() {
     setDemographics(DEFAULT_DEMOGRAPHICS);
     setYears(0);
     setSelectedOrgan(null);
+    setHoveredOrgan(null);
     setChatMessages([]);
     toast.success('All settings reset to defaults.');
   }, []);
 
   return (
-    <div className="min-h-screen bg-mesh">
-      {/* Header */}
-      <header className="border-b border-border/50 px-4 py-4 sm:px-6 lg:px-8 backdrop-blur-sm bg-background/80 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <div className="min-h-screen bg-background">
+      {/* Header — compact, analytical */}
+      <header className="border-b border-border px-4 py-2.5 sm:px-6 lg:px-8 bg-card sticky top-0 z-20">
+        <div className="max-w-[1440px] mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <motion.h1
-              className="text-2xl sm:text-3xl font-bold text-gradient"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              Future You
-            </motion.h1>
-            <span className="text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-primary/25 bg-primary/8 text-primary font-semibold">
-              Educational Demo
+            <h1 className="text-lg font-bold text-foreground tracking-tight">Future You</h1>
+            <span className="text-[9px] uppercase tracking-widest px-2 py-0.5 rounded border border-border bg-muted text-muted-foreground font-semibold">
+              Health Analytics
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            <span className="font-mono">Updated {now}</span>
+            <div className="w-px h-4 bg-border mx-1" />
             <HealthReportPDF risks={risks} habits={habits} demographics={demographics} years={years} chatMessages={chatMessages} />
-            <Button variant="outline" size="sm" onClick={handleReset} className="text-xs gap-1.5 hover-scale">
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+            <Button variant="outline" size="sm" onClick={handleReset} className="text-[11px] gap-1 h-7 px-2">
+              <RotateCcw className="w-3 h-3" />
+              Reset
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Presets */}
-      <div className="px-4 sm:px-6 lg:px-8 py-3">
-        <div className="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs font-medium text-muted-foreground shrink-0">Quick presets:</span>
-          {Object.entries(PRESETS).map(([key, preset]) => (
-            <Button
-              key={key}
-              variant="preset"
-              size="sm"
-              onClick={() => applyPreset(key)}
-              className="text-xs shrink-0 rounded-xl hover-scale"
-            >
-              {preset.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      {/* Main */}
       <main className="px-4 sm:px-6 lg:px-8 py-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-5">
-          {/* Left: Body */}
-          <motion.div
-            className="lg:col-span-3 space-y-4"
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5 }}
-          >
-            {/* Health Score Ring */}
-            <HealthScoreRing score={avgScore} />
+        <div className="max-w-[1440px] mx-auto space-y-4">
 
-            {/* Body Visualization */}
-            <div className="card-glass rounded-2xl p-6 glow-subtle min-h-[520px] flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-gradient-to-r from-primary to-brand-pink animate-pulse" />
-                  <h2 className="text-sm font-semibold text-foreground">Body Visualization</h2>
-                </div>
-                <span className="text-xs font-mono text-primary bg-primary/8 px-2 py-0.5 rounded-lg">
-                  +{years}y
-                </span>
-              </div>
-              <div className="flex-1 min-h-[500px] relative overflow-hidden">
-                <BodyVisualization3D risks={risks} onOrganClick={handleOrganClick} />
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Right: Controls */}
-          <motion.div
-            className="lg:col-span-2 space-y-4"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            {/* Demographics */}
-            <div className="card-glass rounded-2xl p-5 space-y-3">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-gradient-to-r from-brand-teal to-brand-violet" />
-                Your Profile
-              </h3>
-              <DemographicsInput demographics={demographics} onChange={setDemographics} />
-            </div>
-
-            {/* Habits */}
-            <div className="card-glass rounded-2xl p-5 space-y-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-gradient-to-r from-brand-teal to-primary" />
-                Lifestyle Habits
-              </h3>
-              <HabitSelector habits={habits} onChange={setHabits} />
-            </div>
-
-            {/* Timeline */}
-            <div className="card-glass rounded-2xl p-5">
-              <TimelineSelector value={years} onChange={setYears} habits={habits} demographics={demographics} />
-            </div>
-
-            {/* What If Mode */}
-            <WhatIfMode habits={habits} demographics={demographics} years={years} />
-
-            {/* AI Insight Cards */}
-            <AISummaryCard risks={risks} years={years} />
-
-            {/* Organ Insight */}
-            <OrganInsightCard organ={selectedOrgan} />
-
-            {/* Chat */}
-            <ChatInput onSend={handleChat} disabled={chatLoading} />
-
-            {/* Chat messages */}
-            {(chatMessages.length > 0 || chatLoading) && (
-              <div className="card-glass rounded-2xl p-4 space-y-2 max-h-60 overflow-y-auto">
-                {chatMessages.map((msg, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`text-xs leading-relaxed ${msg.role === 'ai' ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+          {/* Section: Overview — KPI Strip */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overview</h2>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-muted-foreground">Presets:</span>
+                {Object.entries(PRESETS).map(([key, preset]) => (
+                  <button
+                    key={key}
+                    onClick={() => applyPreset(key)}
+                    className="text-[10px] px-2 py-0.5 rounded border border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
                   >
-                    <span className="font-semibold">{msg.role === 'user' ? '→' : '✦'}</span>{' '}
-                    {msg.text.split('\n').map((line, j) => (
-                      <span key={j}>
-                        {line}
-                        {j < msg.text.split('\n').length - 1 && <br />}
-                      </span>
-                    ))}
-                  </motion.div>
+                    {preset.label}
+                  </button>
                 ))}
-                {chatLoading && (
-                  <p className="text-xs text-primary animate-pulse font-medium">✦ Analyzing your habits with verified health data...</p>
+              </div>
+            </div>
+            <KPIStrip risks={risks} onOrganHover={setHoveredOrgan} hoveredOrgan={hoveredOrgan} />
+          </section>
+
+          {/* Main grid: Body + Controls */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+            {/* Left column: Body Visualization */}
+            <section className="lg:col-span-7 xl:col-span-8 space-y-3">
+              {/* Body Card */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Your Body Today</h2>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Interactive 3D model — hover organs for risk details, click for insights
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                    +{years}y projection
+                  </span>
+                </div>
+                <div className="relative min-h-[520px] lg:min-h-[580px]">
+                  <BodyVisualization3D
+                    risks={risks}
+                    onOrganClick={handleOrganClick}
+                    highlightedOrgan={hoveredOrgan}
+                  />
+                  <BodyContextPanel
+                    risks={risks}
+                    hoveredOrgan={hoveredOrgan}
+                    selectedOrgan={selectedOrgan}
+                  />
+                </div>
+              </div>
+
+              {/* Organ Breakdown Table */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Organs</h2>
+                </div>
+                <div className="divide-y divide-border">
+                  {risks.map((risk) => {
+                    const healthVal = 100 - risk.score;
+                    const isHovered = hoveredOrgan === risk.organ;
+                    const barColor = healthVal >= 70 ? 'bg-severity-good' : healthVal >= 40 ? 'bg-severity-warn' : 'bg-severity-bad';
+                    const textColor = healthVal >= 70 ? 'text-severity-good' : healthVal >= 40 ? 'text-severity-warn' : 'text-severity-bad';
+                    const ICONS: Record<string, string> = { brain: '🧠', heart: '❤️', lungs: '🫁', liver: '🫀', kidneys: '🫘', 'body-fat': '🏋️' };
+
+                    return (
+                      <motion.div
+                        key={risk.organ}
+                        onMouseEnter={() => setHoveredOrgan(risk.organ)}
+                        onMouseLeave={() => setHoveredOrgan(null)}
+                        onClick={() => handleOrganClick(risk)}
+                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                          isHovered ? 'bg-primary/[0.03]' : 'hover:bg-muted/30'
+                        }`}
+                      >
+                        <span className="text-base w-6 text-center">{ICONS[risk.organ]}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-foreground">{risk.label}</span>
+                            <span className={`text-xs font-bold font-mono ${textColor}`}>{healthVal}</span>
+                          </div>
+                          <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
+                            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${healthVal}%` }} />
+                          </div>
+                        </div>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                          risk.risk === 'low' ? 'bg-severity-good/10 text-severity-good'
+                          : risk.risk === 'moderate' ? 'bg-severity-warn/10 text-severity-warn'
+                          : 'bg-severity-bad/10 text-severity-bad'
+                        }`}>
+                          {risk.risk}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* AI Insights */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Lifestyle Drivers</h2>
+                </div>
+                <div className="p-4">
+                  <AISummaryCard risks={risks} years={years} />
+                </div>
+              </div>
+            </section>
+
+            {/* Right column: Controls + Details */}
+            <aside className="lg:col-span-5 xl:col-span-4 space-y-3">
+
+              {/* Profile */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Profile</h2>
+                </div>
+                <div className="p-4">
+                  <DemographicsInput demographics={demographics} onChange={setDemographics} />
+                </div>
+              </div>
+
+              {/* Habits */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Lifestyle Habits</h2>
+                </div>
+                <div className="p-4">
+                  <HabitSelector habits={habits} onChange={setHabits} />
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">Timeline Projection</h2>
+                </div>
+                <div className="p-4">
+                  <TimelineSelector value={years} onChange={setYears} habits={habits} demographics={demographics} />
+                </div>
+              </div>
+
+              {/* What If */}
+              <WhatIfMode habits={habits} demographics={demographics} years={years} />
+
+              {/* Organ Insight Detail */}
+              <OrganInsightCard organ={selectedOrgan} />
+
+              {/* AI Chat */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-border">
+                  <h2 className="text-sm font-semibold text-foreground">AI Health Chat</h2>
+                </div>
+                <div className="p-3">
+                  <ChatInput onSend={handleChat} disabled={chatLoading} />
+                </div>
+                {(chatMessages.length > 0 || chatLoading) && (
+                  <div className="px-4 pb-3 space-y-2 max-h-48 overflow-y-auto">
+                    {chatMessages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`text-[11px] leading-relaxed ${msg.role === 'ai' ? 'text-primary font-medium' : 'text-muted-foreground'}`}
+                      >
+                        <span className="font-semibold">{msg.role === 'user' ? '→' : '✦'}</span>{' '}
+                        {msg.text.split('\n').map((line, j) => (
+                          <span key={j}>
+                            {line}
+                            {j < msg.text.split('\n').length - 1 && <br />}
+                          </span>
+                        ))}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <p className="text-[11px] text-primary animate-pulse font-medium">✦ Analyzing...</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
 
-            {/* Disclaimer */}
-            <p className="text-[10px] text-muted-foreground/60 text-center px-2">
-              ⚕️ Educational tool only. Risk projections reference WHO, CDC, AHA & NIH guidelines but do not constitute medical advice.
-            </p>
-          </motion.div>
+              {/* Disclaimer */}
+              <p className="text-[9px] text-muted-foreground/50 text-center px-2">
+                ⚕️ Educational tool only. References WHO, CDC, AHA & NIH guidelines. Not medical advice.
+              </p>
+            </aside>
+          </div>
         </div>
       </main>
     </div>

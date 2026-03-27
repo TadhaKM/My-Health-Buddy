@@ -410,30 +410,35 @@ function Scene({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (or
       <OrbitControls
         enablePan={false}
         enableZoom
-        minDistance={1.5}
-        maxDistance={5}
-        minPolarAngle={Math.PI * 0.1}
-        maxPolarAngle={Math.PI * 0.9}
+        minDistance={1.2}
+        maxDistance={4}
+        minPolarAngle={Math.PI * 0.15}
+        maxPolarAngle={Math.PI * 0.85}
         autoRotate
-        autoRotateSpeed={0.4}
+        autoRotateSpeed={0.3}
+        target={[0, 0.2, 0]}
       />
     </>
   );
 }
 
 /* ── Export ── */
-export default function BodyVisualization3D({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (organ: OrganRisk) => void }) {
+export default function BodyVisualization3D({ risks, onOrganClick, highlightedOrgan }: {
+  risks: OrganRisk[];
+  onOrganClick?: (organ: OrganRisk) => void;
+  highlightedOrgan?: string | null;
+}) {
   return (
     <div className="w-full h-full absolute inset-0">
-      <Canvas camera={{ position: [0, 1, 3], fov: 36 }} style={{ background: 'transparent' }} gl={{ antialias: true, alpha: true }}>
+      <Canvas
+        camera={{ position: [0.3, 1.1, 2.2], fov: 40 }}
+        style={{ background: 'transparent' }}
+        gl={{ antialias: true, alpha: true }}
+      >
         <Scene risks={risks} onOrganClick={onOrganClick} />
       </Canvas>
-      <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-primary/20 rounded-tl-md pointer-events-none" />
-      <div className="absolute top-3 right-3 w-5 h-5 border-t-2 border-r-2 border-primary/20 rounded-tr-md pointer-events-none" />
-      <div className="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 border-primary/20 rounded-bl-md pointer-events-none" />
-      <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-primary/20 rounded-br-md pointer-events-none" />
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/50 pointer-events-none">
-        Drag to rotate · Scroll to zoom · Hover organs for details
+      <div className="absolute bottom-3 right-3 text-[9px] text-muted-foreground/40 pointer-events-none font-mono">
+        Drag to rotate · Scroll to zoom
       </div>
     </div>
   );
