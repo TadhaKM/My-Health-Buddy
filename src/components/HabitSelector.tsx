@@ -12,10 +12,10 @@ export default function HabitSelector({ habits, onChange }: HabitSelectorProps) 
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {HABIT_CONFIGS.map((config) => (
         <div key={config.id} className="space-y-1.5">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <span>{config.icon}</span>
             <span>{config.label}</span>
           </div>
@@ -27,7 +27,7 @@ export default function HabitSelector({ habits, onChange }: HabitSelectorProps) 
                 size="sm"
                 data-active={habits[config.id as keyof Habits] === i}
                 onClick={() => setHabit(config.id, i as HabitLevel)}
-                className="flex-1 text-xs h-7"
+                className="flex-1 text-xs h-8"
               >
                 {label}
               </Button>

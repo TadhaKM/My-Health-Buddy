@@ -8,10 +8,10 @@ interface TimelineSelectorProps {
 
 export default function TimelineSelector({ value, onChange }: TimelineSelectorProps) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">Timeline Projection</span>
-        <span className="text-sm font-mono text-primary">
+        <span className="text-sm font-semibold text-foreground">Timeline</span>
+        <span className="text-sm font-mono font-semibold text-primary">
           +{value} years
         </span>
       </div>
@@ -30,10 +30,10 @@ export default function TimelineSelector({ value, onChange }: TimelineSelectorPr
         ))}
       </div>
       {/* Progress bar */}
-      <div className="h-1 rounded-full bg-secondary overflow-hidden">
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
-          style={{ width: `${(value / 20) * 100}%` }}
+          className="h-full rounded-full bg-gradient-to-r from-primary to-brand-pink transition-all duration-500 ease-out"
+          style={{ width: `${Math.max(5, (value / 20) * 100)}%` }}
         />
       </div>
     </div>
