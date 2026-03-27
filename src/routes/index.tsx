@@ -9,6 +9,7 @@ import AISummaryCard from '@/components/AISummaryCard';
 import OrganInsightCard from '@/components/OrganInsightCard';
 import ChatInput from '@/components/ChatInput';
 import { toast } from 'sonner';
+import { parseHabits } from '@/lib/parse-habits';
 import {
   type Habits,
   type HabitLevel,
@@ -41,38 +42,8 @@ function FutureYou() {
     setChatLoading(true);
 
     try {
-      const supabaseUrl = typeof window !== 'undefined' 
-        ? (import.meta.env.VITE_SUPABASE_URL || 'https://tglfrgxkinkoxbocadum.supabase.co')
-        : 'https://tglfrgxkinkoxbocadum.supabase.co';
-      const anonKey = typeof window !== 'undefined'
-        ? (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnbGZyZ3hraW5rb3hib2NhZHVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MDg4MjEsImV4cCI6MjA5MDE4NDgyMX0.l6qzeNnFKwKt6D1pj6qQvQ4jmPg6f2lZ9WFFGX6ZJck')
-        : '';
+      const data = await parseHabits({ data: { message } });
 
-      const res = await fetch(`${supabaseUrl}/functions/v1/parse-habits`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-          'apikey': anonKey,
-        },
-        body: JSON.stringify({ message }),
-      });
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || 'Something went wrong parsing your habits.');
-        setChatLoading(false);
-        return;
-      }
-      
-      const data = await res.json();
-      const error = null;
-
-      if (error) {
-        toast.error('Something went wrong parsing your habits.');
-        setChatLoading(false);
-        return;
-      }
       if (data.habits) {
         setHabits({
           smoking: data.habits.smoking as HabitLevel,
