@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
-import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import BodyVisualization3D from '@/components/BodyVisualization3D';
@@ -42,6 +41,7 @@ function FutureYou() {
     setChatLoading(true);
 
     try {
+      const { supabase } = await import('@/integrations/supabase/client');
       const { data, error } = await supabase.functions.invoke('parse-habits', {
         body: { message },
       });
