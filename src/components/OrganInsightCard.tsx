@@ -13,6 +13,7 @@ const ORGAN_ICONS: Record<string, string> = {
   heart: '❤️',
   lungs: '🫁',
   liver: '🫀',
+  kidneys: '🫘',
   'body-fat': '🏋️',
 };
 
@@ -22,8 +23,11 @@ interface OrganInsightCardProps {
 
 export default function OrganInsightCard({ organ }: OrganInsightCardProps) {
   return (
-    <div className="card-elevated rounded-2xl p-5 space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">Organ Insight</h3>
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-border">
+        <h3 className="text-sm font-semibold text-foreground">Organ Insight</h3>
+      </div>
+      <div className="p-4">
       <AnimatePresence mode="wait">
         {organ ? (
           <motion.div
@@ -65,6 +69,7 @@ export default function OrganInsightCard({ organ }: OrganInsightCardProps) {
           </motion.p>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 }

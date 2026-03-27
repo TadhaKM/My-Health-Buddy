@@ -9,9 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as HealthDataRouteImport } from './routes/health-data'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiParseHabitsRouteImport } from './routes/api/parse-habits'
 
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HealthDataRoute = HealthDataRouteImport.update({
+  id: '/health-data',
+  path: '/health-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -25,32 +37,54 @@ const ApiParseHabitsRoute = ApiParseHabitsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/health-data': typeof HealthDataRoute
+  '/profile': typeof ProfileRoute
   '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/health-data': typeof HealthDataRoute
+  '/profile': typeof ProfileRoute
   '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/health-data': typeof HealthDataRoute
+  '/profile': typeof ProfileRoute
   '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/parse-habits'
+  fullPaths: '/' | '/health-data' | '/profile' | '/api/parse-habits'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/parse-habits'
-  id: '__root__' | '/' | '/api/parse-habits'
+  to: '/' | '/health-data' | '/profile' | '/api/parse-habits'
+  id: '__root__' | '/' | '/health-data' | '/profile' | '/api/parse-habits'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HealthDataRoute: typeof HealthDataRoute
+  ProfileRoute: typeof ProfileRoute
   ApiParseHabitsRoute: typeof ApiParseHabitsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/health-data': {
+      id: '/health-data'
+      path: '/health-data'
+      fullPath: '/health-data'
+      preLoaderRoute: typeof HealthDataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -70,6 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HealthDataRoute: HealthDataRoute,
+  ProfileRoute: ProfileRoute,
   ApiParseHabitsRoute: ApiParseHabitsRoute,
 }
 export const routeTree = rootRouteImport
