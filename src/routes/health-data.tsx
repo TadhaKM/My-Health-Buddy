@@ -1,21 +1,15 @@
 import { useState, useMemo } from 'react';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, ChevronDown, AlertTriangle, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { ChevronDown, AlertTriangle, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import AppHeader from '@/components/AppHeader';
+import { useHealthState } from '@/hooks/use-health-state';
 import {
   type BloodBiomarkers,
   type DiseaseRisk,
-  DEFAULT_BIOMARKERS,
   BIOMARKER_FIELDS,
   calculateDiseaseRisks,
 } from '@/lib/biomarker-types';
-import {
-  type Habits,
-  type Demographics,
-  DEFAULT_HABITS,
-  DEFAULT_DEMOGRAPHICS,
-} from '@/lib/health-types';
 
 export const Route = createFileRoute('/health-data')({
   component: HealthDataPage,
