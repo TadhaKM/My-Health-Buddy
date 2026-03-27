@@ -1,11 +1,10 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { Activity, User, MessageSquare, FlaskConical, RotateCcw, FileText } from 'lucide-react';
+import { Activity, User, FlaskConical, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const NAV_ITEMS = [
   { to: '/' as const, label: 'Dashboard', icon: Activity },
   { to: '/profile' as const, label: 'Profile & Habits', icon: User },
-  { to: '/chat' as const, label: 'AI Chat', icon: MessageSquare },
   { to: '/health-data' as const, label: 'Blood Work', icon: FlaskConical },
 ];
 
