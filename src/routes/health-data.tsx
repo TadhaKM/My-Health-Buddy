@@ -349,6 +349,53 @@ function HealthDataPage() {
                 <DiseaseCard key={disease.name} disease={disease} index={i} />
               ))}
 
+              {/* AI Summary */}
+              {(() => {
+                const elevated = diseases.filter(d => d.risk === 'critical' || d.risk === 'high');
+                const moderate = diseases.filter(d => d.risk === 'moderate');
+                const topRisks = [...elevated, ...moderate].slice(0, 5);
+
+                if (topRisks.length === 0 && filledCount === 0) {
+                  return (
+                    <div className="rounded-xl border border-border bg-card p-4">
+                      <p className="text-sm font-semibold text-foreground mb-1">📋 Summary</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Enter your blood work results or try a demo preset above to get a personalized risk summary.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className={`rounded-xl border p-4 ${elevated.length > 0 ? 'border-severity-bad/20 bg-severity-bad/[0.03]' : moderate.length > 0 ? 'border-severity-warn/20 bg-severity-warn/[0.03]' : 'border-severity-good/20 bg-severity-good/[0.03]'}`}>
+                    <p className="text-sm font-semibold text-foreground mb-2">🩺 Based on your results, you probably have:</p>
+                    {topRisks.length > 0 ? (
+                      <ul className="space-y-1.5">
+                        {topRisks.map(d => (
+                          <li key={d.name} className="flex items-start gap-2">
+                            <span className={`text-xs font-bold ${d.risk === 'low' ? 'text-severity-good' : d.risk === 'moderate' ? 'text-severity-warn' : 'text-severity-bad'}`}>
+                              {d.risk === 'low' ? '✓' : d.risk === 'moderate' ? '⚠' : '⚠️'}
+                            </span>
+                            <div>
+                              <span className="text-xs font-semibold text-foreground">{d.name}</span>
+                              <span className={`text-[10px] ml-1.5 font-mono ${d.risk === 'low' ? 'text-severity-good' : d.risk === 'moderate' ? 'text-severity-warn' : 'text-severity-bad'}`}>
+                                ({d.score}% risk)
+                              </span>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{d.description}</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-severity-good font-medium">✅ All conditions show low risk — looking good!</p>
+                    )}
+                    <p className="text-[9px] text-muted-foreground mt-3 italic">
+                      This is an educational estimate, not a medical diagnosis. Please consult your doctor.
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* Disclaimer */}
               <div className="rounded-xl border border-severity-warn/20 bg-severity-warn/[0.03] p-4">
                 <div className="flex items-start gap-2">
