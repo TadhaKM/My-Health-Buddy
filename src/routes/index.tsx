@@ -183,7 +183,7 @@ function FutureYou() {
                   +{years}y
                 </span>
               </div>
-              <div className="flex-1 flex items-center justify-center overflow-hidden">
+              <div className="flex-1 min-h-[500px] relative overflow-hidden">
                 <BodyVisualization3D risks={risks} onOrganClick={handleOrganClick} />
               </div>
             </div>
