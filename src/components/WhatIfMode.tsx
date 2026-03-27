@@ -60,11 +60,14 @@ export default function WhatIfMode({ habits, demographics, years }: WhatIfModePr
   if (relevantScenarios.length === 0) return null;
 
   return (
-    <div className="card-glass rounded-2xl p-4 space-y-3 border border-primary/10 bg-gradient-to-br from-primary/3 to-transparent">
-      <div className="flex items-center gap-2">
-        <Zap className="w-4 h-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">What If?</h3>
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-border">
+        <div className="flex items-center gap-2">
+          <Zap className="w-3.5 h-3.5 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">What If?</h3>
+        </div>
       </div>
+      <div className="p-4 space-y-3">
 
       <div className="flex flex-wrap gap-1.5">
         {relevantScenarios.map(scenario => (
