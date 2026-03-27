@@ -1,0 +1,62 @@
+{
+  "healthy_baseline": {
+    "payload": {
+      "smoking": "none",
+      "alcohol": "none",
+      "sleep": "8h",
+      "exercise": "regular",
+      "diet": "balanced",
+      "chatText": "I want to keep my current routine for years."
+    },
+    "response": {
+      "organs": {
+        "lungs": { "0": 6, "5": 8, "10": 10, "20": 13 },
+        "heart": { "0": 6, "5": 8, "10": 10, "20": 13 },
+        "liver": { "0": 6, "5": 8, "10": 10, "20": 13 },
+        "brain": { "0": 6, "5": 8, "10": 10, "20": 13 },
+        "body_fat": { "0": 6, "5": 8, "10": 10, "20": 13 }
+      },
+      "summary": "Projected strain stays relatively low, with only mild pressure on lungs and heart. Keeping these habits steady should help keep long-term risk flatter."
+    }
+  },
+  "high_risk_smoker": {
+    "payload": {
+      "smoking": "daily",
+      "alcohol": "frequent",
+      "sleep": "6h",
+      "exercise": "low",
+      "diet": "average",
+      "chatText": "How bad could this get over 20 years?"
+    },
+    "response": {
+      "organs": {
+        "lungs": { "0": 38, "5": 43, "10": 49, "20": 61 },
+        "heart": { "0": 61, "5": 68, "10": 78, "20": 98 },
+        "liver": { "0": 44, "5": 49, "10": 56, "20": 70 },
+        "brain": { "0": 44, "5": 49, "10": 56, "20": 70 },
+        "body_fat": { "0": 34, "5": 38, "10": 44, "20": 55 }
+      },
+      "summary": "Projected long-term strain is highest in heart, liver and brain. Reducing high-risk habits could meaningfully flatten these trajectories over time."
+    }
+  },
+  "poor_sleep_diet_low_exercise": {
+    "payload": {
+      "smoking": "none",
+      "alcohol": "weekends",
+      "sleep": "5h",
+      "exercise": "low",
+      "diet": "poor",
+      "chatText": "I am tired all the time and rarely work out."
+    },
+    "response": {
+      "organs": {
+        "lungs": { "0": 6, "5": 8, "10": 10, "20": 13 },
+        "heart": { "0": 54, "5": 60, "10": 69, "20": 86 },
+        "liver": { "0": 36, "5": 40, "10": 46, "20": 58 },
+        "brain": { "0": 38, "5": 43, "10": 49, "20": 61 },
+        "body_fat": { "0": 50, "5": 56, "10": 64, "20": 80 }
+      },
+      "summary": "Projected long-term strain is highest in heart, body fat and brain. Reducing high-risk habits could meaningfully flatten these trajectories over time."
+    }
+  }
+}
