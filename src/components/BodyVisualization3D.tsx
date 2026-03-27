@@ -1,8 +1,21 @@
-import { useRef, useState, useMemo, useCallback } from 'react';
-import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Float } from '@react-three/drei';
+import { Suspense, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useLoader, type ThreeEvent } from '@react-three/fiber';
+import { ContactShadows, Float, OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import type { OrganRisk, RiskLevel } from '@/lib/health-types';
+
+const HUMAN_MODEL_URL = '/models/FinalBaseMesh.obj';
+const ANGIOLOGY_MODEL_URL = '/models/angiology.glb';
+const NEUROLOGY_MODEL_URL = '/models/neurology.glb';
+const SPLANCHNOLOGY_MODEL_URL = '/models/splanchnology.glb';
+const BODY_TARGET_HEIGHT = 2.08;
+const BODY_YAW = 0.03;
+const BODY_Y_OFFSET = -0.16;
+const ANATOMY_TARGET_HEIGHT = 2.08;
+const ANATOMY_YAW = 0.03;
+const ANATOMY_POSITION_OFFSET: [number, number, number] = [0, -0.16, 0.008];
+const ANATOMY_SCALE_TWEAK: [number, number, number] = [1.5, 1, 1.32];
 
 const RISK_COLORS: Record<RiskLevel, string> = {
   low: '#4ade80',
@@ -11,358 +24,401 @@ const RISK_COLORS: Record<RiskLevel, string> = {
   critical: '#ef4444',
 };
 
-/**
- * Creates a smooth body-of-revolution from a 2D profile.
- */
-function createLatheBody(profile: [number, number][], segments = 32): THREE.LatheGeometry {
-  const points = profile.map(([r, y]) => new THREE.Vector2(r, y));
-  return new THREE.LatheGeometry(points, segments);
+function classifyMaterial(name: string) {
+  const lower = name.toLowerCase();
+
+  if (lower.includes('lung') || lower.includes('bronchi')) return 'lungs';
+  if (lower.includes('brain') || lower.includes('cerebellum') || lower.includes('white_matter') || lower.includes('nucleus')) return 'brain';
+  if (lower.includes('heart')) return 'heart';
+  if (lower.includes('organ') || lower.includes('intestine') || lower.includes('gland') || lower.includes('mucosa') || lower.includes('ductus') || lower.includes('peritoneum')) return 'viscera';
+  if (lower.includes('artery') || lower.includes('vein')) return 'vascular';
+  if (lower.includes('nerve') || lower.includes('lcr')) return 'neural';
+  if (lower.includes('bone') || lower.includes('cartilage') || lower.includes('ligament') || lower.includes('teeth') || lower.includes('suture')) return 'support';
+  return 'default';
 }
 
-/**
- * Creates a human torso from elliptical cross-sections.
- * Each slice: { y, rx (side width), rz (front depth), zOff (forward lean) }
- */
-function createTorsoGeometry(
-  slices: { y: number; rx: number; rz: number; zOff?: number }[],
-  radialSegs = 24,
-): THREE.BufferGeometry {
-  const positions: number[] = [];
-  const normals: number[] = [];
-  const indices: number[] = [];
-
-  // Generate vertices per slice
-  for (let s = 0; s < slices.length; s++) {
-    const { y, rx, rz, zOff = 0 } = slices[s];
-    for (let r = 0; r <= radialSegs; r++) {
-      const theta = (r / radialSegs) * Math.PI * 2;
-      const cos = Math.cos(theta);
-      const sin = Math.sin(theta);
-      const x = cos * rx;
-      const z = sin * rz + zOff;
-      positions.push(x, y, z);
-      // Approximate normal
-      const nx = cos / rx;
-      const nz = sin / rz;
-      const len = Math.sqrt(nx * nx + nz * nz) || 1;
-      normals.push(nx / len, 0, nz / len);
-    }
-  }
-
-  // Generate indices
-  const vertsPerSlice = radialSegs + 1;
-  for (let s = 0; s < slices.length - 1; s++) {
-    for (let r = 0; r < radialSegs; r++) {
-      const a = s * vertsPerSlice + r;
-      const b = a + 1;
-      const c = a + vertsPerSlice;
-      const d = c + 1;
-      indices.push(a, c, b, b, c, d);
-    }
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  return geo;
+function setPointer(active: boolean) {
+  document.body.style.cursor = active ? 'pointer' : 'default';
 }
 
-/* ── Human Body ── */
-function HumanBody() {
-  const wc = '#9b8ec7';
+function HumanBodyModel() {
+  const scene = useLoader(OBJLoader, HUMAN_MODEL_URL);
 
-  const headGeo = useMemo(() => createLatheBody([
-    [0, 0.24],
-    [0.06, 0.22],
-    [0.12, 0.18],
-    [0.16, 0.12],
-    [0.17, 0.06],
-    [0.17, 0],
-    [0.16, -0.06],
-    [0.14, -0.1],
-    [0.13, -0.14],
-    [0.11, -0.17],
-    [0.10, -0.19],
-    [0, -0.19],
-  ], 24), []);
+  const model = useMemo(() => {
+    const cloned = scene.clone(true);
 
-  // Anatomical torso: elliptical cross-sections from neck to groin
-  // rx = side width, rz = front-back depth, zOff = forward chest protrusion
-  const torsoGeo = useMemo(() => createTorsoGeometry([
-    { y: 0.44, rx: 0.07, rz: 0.06 },            // neck base
-    { y: 0.40, rx: 0.10, rz: 0.07 },             // neck-shoulder transition
-    { y: 0.35, rx: 0.18, rz: 0.09 },             // trapezius
-    { y: 0.30, rx: 0.28, rz: 0.11, zOff: 0.01 }, // shoulder line
-    { y: 0.24, rx: 0.32, rz: 0.13, zOff: 0.02 }, // upper chest / delts
-    { y: 0.18, rx: 0.33, rz: 0.15, zOff: 0.03 }, // pec area (widest + deepest)
-    { y: 0.12, rx: 0.32, rz: 0.14, zOff: 0.02 }, // lower pecs
-    { y: 0.06, rx: 0.30, rz: 0.13, zOff: 0.01 }, // ribcage
-    { y: 0.00, rx: 0.28, rz: 0.12 },              // lower ribs
-    { y: -0.06, rx: 0.25, rz: 0.11 },             // waist narrows
-    { y: -0.12, rx: 0.24, rz: 0.10 },             // navel
-    { y: -0.18, rx: 0.23, rz: 0.10 },             // lower abs
-    { y: -0.24, rx: 0.25, rz: 0.11 },             // iliac crest (hip bones)
-    { y: -0.30, rx: 0.28, rz: 0.12, zOff: -0.01 }, // hips widen
-    { y: -0.36, rx: 0.27, rz: 0.13, zOff: -0.01 }, // glutes
-    { y: -0.40, rx: 0.22, rz: 0.11 },             // upper thigh junction
-    { y: -0.44, rx: 0.15, rz: 0.08 },             // groin taper
-  ], 24), []);
+    cloned.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.castShadow = true;
+      object.receiveShadow = true;
+      object.material = new THREE.MeshPhysicalMaterial({
+        color: '#d9d6e8',
+        transparent: true,
+        opacity: 0.11,
+        roughness: 0.62,
+        metalness: 0.04,
+        clearcoat: 0.18,
+        clearcoatRoughness: 0.5,
+        side: THREE.DoubleSide,
+      });
+    });
 
-  const wc2 = wc; // alias for Limb
+    return cloned;
+  }, [scene]);
 
-  // Limb helper - inline
-  const renderLimb = (
-    pos: [number, number, number],
-    rot: [number, number, number],
-    segments: { rTop: number; rBot: number; len: number }[],
-  ) => {
-    let ly = 0;
-    return (
-      <group position={pos} rotation={rot as unknown as THREE.Euler}>
-        {segments.map((seg, idx) => {
-          const my = ly - seg.len / 2;
-          ly -= seg.len;
-          return (
-            <group key={idx}>
-              <mesh position={[0, my, 0]}>
-                <cylinderGeometry args={[seg.rTop, seg.rBot, seg.len, 14, 1, true]} />
-                <meshStandardMaterial color="#ddd5e8" transparent opacity={0.07} roughness={0.9} side={THREE.DoubleSide} />
-              </mesh>
-              <mesh position={[0, my, 0]}>
-                <cylinderGeometry args={[seg.rTop, seg.rBot, seg.len, 14, 1, true]} />
-                <meshBasicMaterial color={wc2} wireframe transparent opacity={0.22} />
-              </mesh>
-            </group>
-          );
-        })}
-      </group>
-    );
-  };
+  const normalized = useMemo(() => {
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = BODY_TARGET_HEIGHT / (size.y || 1);
+
+    return {
+      position: [-center.x * scale, -bounds.min.y * scale + BODY_Y_OFFSET, -center.z * scale] as [number, number, number],
+      scale: [scale, scale, scale] as [number, number, number],
+    };
+  }, [model]);
 
   return (
-    <group>
-      {/* Head */}
-      <group position={[0, 1.78, 0]}>
-        <mesh geometry={headGeo}>
-          <meshStandardMaterial color="#ddd5e8" transparent opacity={0.07} roughness={0.8} side={THREE.DoubleSide} />
-        </mesh>
-        <mesh geometry={headGeo}>
-          <meshBasicMaterial color={wc} wireframe transparent opacity={0.25} />
-        </mesh>
-        {/* Eyes */}
-        {[-0.065, 0.065].map((ex) => (
-          <mesh key={ex} position={[ex, 0.02, 0.14]}>
-            <sphereGeometry args={[0.025, 8, 8]} />
-            <meshStandardMaterial color="#7c6fc4" emissive="#7c6fc4" emissiveIntensity={1} transparent opacity={0.7} />
-          </mesh>
-        ))}
-      </group>
-
-      {/* Neck */}
-      <mesh position={[0, 1.54, 0]}>
-        <cylinderGeometry args={[0.065, 0.08, 0.1, 14, 1, true]} />
-        <meshBasicMaterial color={wc} wireframe transparent opacity={0.2} />
-      </mesh>
-      <mesh position={[0, 1.54, 0]}>
-        <cylinderGeometry args={[0.065, 0.08, 0.1, 14, 1, true]} />
-        <meshStandardMaterial color="#ddd5e8" transparent opacity={0.05} roughness={0.9} side={THREE.DoubleSide} />
-      </mesh>
-
-      {/* Torso */}
-      <group position={[0, 1.06, 0]}>
-        <mesh geometry={torsoGeo}>
-          <meshStandardMaterial color="#ddd5e8" transparent opacity={0.06} roughness={0.9} side={THREE.DoubleSide} />
-        </mesh>
-        <mesh geometry={torsoGeo}>
-          <meshBasicMaterial color={wc} wireframe transparent opacity={0.22} />
-        </mesh>
-      </group>
-
-      {/* Left Arm */}
-      {renderLimb([-0.35, 1.36, 0], [0, 0, Math.PI / 2 + 0.15], [
-        { rTop: 0.07, rBot: 0.065, len: 0.28 },
-        { rTop: 0.06, rBot: 0.05, len: 0.26 },
-        { rTop: 0.045, rBot: 0.03, len: 0.12 },
-      ])}
-      {/* Right Arm */}
-      {renderLimb([0.35, 1.36, 0], [0, 0, -(Math.PI / 2 + 0.15)], [
-        { rTop: 0.07, rBot: 0.065, len: 0.28 },
-        { rTop: 0.06, rBot: 0.05, len: 0.26 },
-        { rTop: 0.045, rBot: 0.03, len: 0.12 },
-      ])}
-      {/* Left Leg */}
-      {renderLimb([-0.13, 0.64, 0], [0, 0, 0.03], [
-        { rTop: 0.10, rBot: 0.08, len: 0.38 },
-        { rTop: 0.075, rBot: 0.06, len: 0.36 },
-        { rTop: 0.055, rBot: 0.05, len: 0.1 },
-      ])}
-      {/* Right Leg */}
-      {renderLimb([0.13, 0.64, 0], [0, 0, -0.03], [
-        { rTop: 0.10, rBot: 0.08, len: 0.38 },
-        { rTop: 0.075, rBot: 0.06, len: 0.36 },
-        { rTop: 0.055, rBot: 0.05, len: 0.1 },
-      ])}
-
-      {/* Feet */}
-      {[-0.13, 0.13].map((fx) => (
-        <mesh key={fx} position={[fx, -0.18, 0.04]} scale={[0.055, 0.025, 0.09]}>
-          <boxGeometry args={[1, 1, 1, 3, 1, 3]} />
-          <meshBasicMaterial color={wc} wireframe transparent opacity={0.18} />
-        </mesh>
-      ))}
+    <group position={normalized.position} scale={normalized.scale} rotation={[0, BODY_YAW, 0]}>
+      <primitive object={model} />
     </group>
   );
 }
 
-/* ── Organ: Lungs ── */
-function LungShape({ risk, side, onClick }: { risk: OrganRisk; side: 'left' | 'right'; onClick?: (r: OrganRisk) => void }) {
-  const x = side === 'left' ? -0.15 : 0.15;
-  const c = RISK_COLORS[risk.risk];
-  const bi = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
-  const [h, setH] = useState(false);
-  const i = h ? bi * 1.6 : bi;
-  const ref = useRef<THREE.Group>(null);
-  useFrame((s) => { if (ref.current) ref.current.scale.setScalar(1 + Math.sin(s.clock.elapsedTime * 0.8) * 0.03); });
+function AnatomyLayerModels() {
+  const { scene: angiologyScene } = useGLTF(ANGIOLOGY_MODEL_URL);
+  const { scene: neurologyScene } = useGLTF(NEUROLOGY_MODEL_URL);
+  const { scene: splanchnologyScene } = useGLTF(SPLANCHNOLOGY_MODEL_URL);
+
+  const referenceTransform = useMemo(() => {
+    const bounds = new THREE.Box3().setFromObject(angiologyScene);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = ANATOMY_TARGET_HEIGHT / (size.y || 1);
+
+    return {
+      position: [
+        -center.x * scale + ANATOMY_POSITION_OFFSET[0],
+        -bounds.min.y * scale + ANATOMY_POSITION_OFFSET[1],
+        -center.z * scale + ANATOMY_POSITION_OFFSET[2],
+      ] as [number, number, number],
+      scale: [scale * ANATOMY_SCALE_TWEAK[0], scale * ANATOMY_SCALE_TWEAK[1], scale * ANATOMY_SCALE_TWEAK[2]] as [number, number, number],
+      rotation: [0, ANATOMY_YAW, 0] as [number, number, number],
+    };
+  }, [angiologyScene]);
+
+  const prepareLayer = useMemo(
+    () =>
+      (source: THREE.Object3D, options: { opacity: number; boost?: string }) => {
+        const cloned = source.clone(true);
+
+        cloned.traverse((object) => {
+          if (!(object instanceof THREE.Mesh)) return;
+          object.castShadow = true;
+          object.receiveShadow = true;
+
+          const baseMaterial = Array.isArray(object.material) ? object.material[0] : object.material;
+          const nextMaterial = (baseMaterial?.clone?.() as THREE.MeshStandardMaterial | undefined) ?? new THREE.MeshStandardMaterial();
+          const materialName = (baseMaterial?.name ?? '').trim();
+          const category = classifyMaterial(materialName);
+
+          nextMaterial.transparent = true;
+          nextMaterial.opacity = options.opacity;
+          nextMaterial.side = THREE.DoubleSide;
+          nextMaterial.depthWrite = false;
+
+          if ('roughness' in nextMaterial) nextMaterial.roughness = Math.min(nextMaterial.roughness ?? 0.6, 0.72);
+          if ('metalness' in nextMaterial) nextMaterial.metalness = Math.min(nextMaterial.metalness ?? 0, 0.08);
+
+          if (options.boost) {
+            nextMaterial.emissive = new THREE.Color(options.boost);
+            nextMaterial.emissiveIntensity = 0.08;
+          }
+
+          if (category === 'support') {
+            nextMaterial.opacity = 0.08;
+            nextMaterial.emissiveIntensity = 0;
+          }
+
+          if (category === 'vascular') {
+            nextMaterial.opacity = 0.45;
+            nextMaterial.emissive = new THREE.Color('#fb7185');
+            nextMaterial.emissiveIntensity = 0.2;
+          }
+
+          if (category === 'neural') {
+            nextMaterial.opacity = 0.62;
+            nextMaterial.emissive = new THREE.Color('#7dd3fc');
+            nextMaterial.emissiveIntensity = 0.24;
+          }
+
+          if (category === 'brain') {
+            nextMaterial.opacity = 0.7;
+            nextMaterial.emissive = new THREE.Color('#a78bfa');
+            nextMaterial.emissiveIntensity = 0.18;
+          }
+
+          if (category === 'viscera') {
+            nextMaterial.opacity = 0.58;
+            nextMaterial.emissive = new THREE.Color('#f59e0b');
+            nextMaterial.emissiveIntensity = 0.14;
+          }
+
+          if (category === 'lungs') {
+            nextMaterial.opacity = 0.82;
+            nextMaterial.color = new THREE.Color('#7dd3fc');
+            nextMaterial.emissive = new THREE.Color('#38bdf8');
+            nextMaterial.emissiveIntensity = 0.32;
+            nextMaterial.roughness = 0.3;
+          }
+
+          object.material = nextMaterial;
+        });
+
+        return cloned;
+      },
+    [],
+  );
+
+  const angiologyModel = useMemo(() => prepareLayer(angiologyScene, { opacity: 0.28, boost: '#fb7185' }), [angiologyScene, prepareLayer]);
+  const neurologyModel = useMemo(() => prepareLayer(neurologyScene, { opacity: 0.32, boost: '#7dd3fc' }), [neurologyScene, prepareLayer]);
+  const splanchnologyModel = useMemo(() => prepareLayer(splanchnologyScene, { opacity: 0.34, boost: '#f59e0b' }), [splanchnologyScene, prepareLayer]);
 
   return (
-    <group ref={ref} position={[x, 1.22, 0.02]}
-      onClick={(e) => { e.stopPropagation(); onClick?.(risk); }}
-      onPointerOver={(e) => { e.stopPropagation(); setH(true); document.body.style.cursor = 'pointer'; }}
-      onPointerOut={() => { setH(false); document.body.style.cursor = 'default'; }}>
-      <mesh scale={[0.10, 0.16, 0.08]}>
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i} transparent opacity={0.6} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 0.08, 0.01]} scale={[0.07, 0.09, 0.06]}>
-        <sphereGeometry args={[1, 12, 12]} />
-        <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i * 0.7} transparent opacity={0.45} roughness={0.4} />
-      </mesh>
+    <group position={referenceTransform.position} scale={referenceTransform.scale} rotation={referenceTransform.rotation}>
+      <primitive object={angiologyModel} />
+      <primitive object={splanchnologyModel} />
+      <primitive object={neurologyModel} />
     </group>
   );
 }
 
-/* ── Organ: Heart ── */
-function HeartShape({ risk, onClick }: { risk: OrganRisk; onClick?: (r: OrganRisk) => void }) {
-  const c = RISK_COLORS[risk.risk];
-  const bi = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
-  const [h, setH] = useState(false);
-  const i = h ? bi * 1.6 : bi;
-  const ref = useRef<THREE.Group>(null);
-  useFrame((s) => { if (ref.current) ref.current.scale.setScalar(1 + Math.sin(s.clock.elapsedTime * 4) * 0.05 * (risk.risk === 'critical' ? 2 : 1)); });
-
-  return (
-    <group ref={ref} position={[-0.05, 1.15, 0.1]}
-      onClick={(e) => { e.stopPropagation(); onClick?.(risk); }}
-      onPointerOver={(e) => { e.stopPropagation(); setH(true); document.body.style.cursor = 'pointer'; }}
-      onPointerOut={() => { setH(false); document.body.style.cursor = 'default'; }}>
-      <mesh position={[-0.025, 0.015, 0]} scale={[0.04, 0.05, 0.035]}>
-        <sphereGeometry args={[1, 14, 14]} />
-        <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i} transparent opacity={0.85} roughness={0.3} />
-      </mesh>
-      <mesh position={[0.025, 0.015, 0]} scale={[0.04, 0.05, 0.035]}>
-        <sphereGeometry args={[1, 14, 14]} />
-        <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i} transparent opacity={0.85} roughness={0.3} />
-      </mesh>
-      <mesh position={[0, -0.03, 0]} scale={[0.03, 0.04, 0.028]} rotation={[0, 0, Math.PI]}>
-        <coneGeometry args={[1, 1.5, 12]} />
-        <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i * 0.9} transparent opacity={0.8} roughness={0.3} />
-      </mesh>
-    </group>
-  );
-}
-
-/* ── Generic glowing organ ── */
-function GlowOrgan({ risk, position, scale, rotation, onClick }: {
-  risk: OrganRisk; position: [number, number, number]; scale: [number, number, number];
-  rotation?: [number, number, number]; onClick?: (r: OrganRisk) => void;
+function LungShape({
+  risk,
+  side,
+  onClick,
+}: {
+  risk: OrganRisk;
+  side: 'left' | 'right';
+  onClick?: (r: OrganRisk) => void;
 }) {
-  const c = RISK_COLORS[risk.risk];
-  const bi = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
-  const [h, setH] = useState(false);
-  const i = h ? bi * 1.6 : bi;
-  const ref = useRef<THREE.Mesh>(null);
-  useFrame((s) => {
+  const x = side === 'left' ? -0.098 : 0.098;
+  const color = RISK_COLORS[risk.risk];
+  const base = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
+  const [hovered, setHovered] = useState(false);
+  const intensity = hovered ? base * 1.6 : base;
+  const ref = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
     if (!ref.current) return;
-    const p = risk.risk === 'critical' ? 0.06 : 0.02;
-    const sc = 1 + Math.sin(s.clock.elapsedTime * 1.5) * p;
-    ref.current.scale.set(scale[0] * sc, scale[1] * sc, scale[2] * sc);
+    ref.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 0.8) * 0.03);
   });
 
   return (
-    <mesh ref={ref} position={position} rotation={rotation as unknown as THREE.Euler} scale={scale}
-      onClick={(e) => { e.stopPropagation(); onClick?.(risk); }}
-      onPointerOver={(e) => { e.stopPropagation(); setH(true); document.body.style.cursor = 'pointer'; }}
-      onPointerOut={() => { setH(false); document.body.style.cursor = 'default'; }}>
+    <group
+      ref={ref}
+      position={[x, 1.165, 0.048]}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        event.stopPropagation();
+        onClick?.(risk);
+      }}
+      onPointerOver={(event: ThreeEvent<PointerEvent>) => {
+        event.stopPropagation();
+        setHovered(true);
+        setPointer(true);
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        setPointer(false);
+      }}
+      renderOrder={10}
+    >
+      <mesh rotation={[0.06, 0.12 * (side === 'left' ? -1 : 1), 0.12 * (side === 'left' ? -1 : 1)]} scale={[0.082, 0.18, 0.074]}>
+        <sphereGeometry args={[1, 18, 18]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity} transparent opacity={0.52} roughness={0.35} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, -0.062, -0.004]} rotation={[-0.04, 0, 0]} scale={[0.072, 0.115, 0.064]}>
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity * 0.72} transparent opacity={0.4} roughness={0.4} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function HeartShape({ risk, onClick }: { risk: OrganRisk; onClick?: (r: OrganRisk) => void }) {
+  const color = RISK_COLORS[risk.risk];
+  const base = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
+  const [hovered, setHovered] = useState(false);
+  const intensity = hovered ? base * 1.6 : base;
+  const ref = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (!ref.current) return;
+    const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.05 * (risk.risk === 'critical' ? 2 : 1);
+    ref.current.scale.setScalar(pulse);
+  });
+
+  return (
+    <group
+      ref={ref}
+      position={[-0.03, 1.105, 0.082]}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        event.stopPropagation();
+        onClick?.(risk);
+      }}
+      onPointerOver={(event: ThreeEvent<PointerEvent>) => {
+        event.stopPropagation();
+        setHovered(true);
+        setPointer(true);
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        setPointer(false);
+      }}
+      renderOrder={10}
+    >
+      <mesh position={[-0.025, 0.018, 0]} scale={[0.042, 0.056, 0.038]}>
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity} transparent opacity={0.8} roughness={0.3} depthWrite={false} />
+      </mesh>
+      <mesh position={[0.025, 0.018, 0]} scale={[0.042, 0.056, 0.038]}>
+        <sphereGeometry args={[1, 16, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity} transparent opacity={0.8} roughness={0.3} depthWrite={false} />
+      </mesh>
+      <mesh position={[0, -0.03, 0.003]} scale={[0.032, 0.042, 0.03]} rotation={[0.1, 0, Math.PI]}>
+        <coneGeometry args={[1, 1.5, 16]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity * 0.88} transparent opacity={0.78} roughness={0.3} depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function GlowOrgan({
+  risk,
+  position,
+  scale,
+  rotation,
+  onClick,
+}: {
+  risk: OrganRisk;
+  position: [number, number, number];
+  scale: [number, number, number];
+  rotation?: [number, number, number];
+  onClick?: (r: OrganRisk) => void;
+}) {
+  const color = RISK_COLORS[risk.risk];
+  const base = risk.risk === 'critical' ? 2.5 : risk.risk === 'high' ? 1.8 : risk.risk === 'moderate' ? 1.2 : 0.5;
+  const [hovered, setHovered] = useState(false);
+  const intensity = hovered ? base * 1.6 : base;
+  const ref = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    if (!ref.current) return;
+    const pulse = risk.risk === 'critical' ? 0.06 : 0.02;
+    const scalar = 1 + Math.sin(state.clock.elapsedTime * 1.5) * pulse;
+    ref.current.scale.set(scale[0] * scalar, scale[1] * scalar, scale[2] * scalar);
+  });
+
+  return (
+    <mesh
+      ref={ref}
+      position={position}
+      rotation={rotation as unknown as THREE.Euler}
+      scale={scale}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        event.stopPropagation();
+        onClick?.(risk);
+      }}
+      onPointerOver={(event: ThreeEvent<PointerEvent>) => {
+        event.stopPropagation();
+        setHovered(true);
+        setPointer(true);
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        setPointer(false);
+      }}
+      renderOrder={10}
+    >
       <sphereGeometry args={[1, 18, 18]} />
-      <meshStandardMaterial color={c} emissive={c} emissiveIntensity={i} transparent opacity={h ? 0.8 : 0.6} roughness={0.35} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={intensity} transparent opacity={hovered ? 0.8 : 0.58} roughness={0.35} depthWrite={false} />
     </mesh>
   );
 }
 
-/* ── Scene ── */
 function Scene({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (organ: OrganRisk) => void }) {
-  const get = (id: string) => risks.find((r) => r.organ === id)!;
+  const getRisk = (id: string) => risks.find((risk) => risk.organ === id)!;
 
   return (
     <>
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[5, 5, 5]} intensity={0.6} />
-      <directionalLight position={[-3, 4, -2]} intensity={0.25} color="#c4b5fd" />
-      <pointLight position={[0, 2.5, 3]} intensity={0.4} color="#f0abfc" />
-      <pointLight position={[0, -0.5, 2]} intensity={0.15} color="#67e8f9" />
+      <color attach="background" args={['#000000']} />
+      <fog attach="fog" args={['#100c19', 2.2, 6]} />
+
+      <ambientLight intensity={0.36} />
+      <hemisphereLight args={['#ece4ff', '#181224', 0.42]} />
+      <directionalLight position={[3.6, 4.2, 2.6]} intensity={0.85} color="#fff7ed" />
+      <directionalLight position={[-2.6, 3.8, -2.4]} intensity={0.35} color="#a78bfa" />
+      <pointLight position={[0, 1.2, 1.8]} intensity={0.35} color="#7dd3fc" />
+      <pointLight position={[0, 0.7, -1.5]} intensity={0.16} color="#f0abfc" />
 
       <Float speed={0.3} rotationIntensity={0.008} floatIntensity={0.06}>
         <group position={[0, -0.8, 0]}>
-          <HumanBody />
+          <Suspense fallback={null}>
+            <HumanBodyModel />
+          </Suspense>
 
-          {/* Brain */}
-          <GlowOrgan risk={get('brain')} position={[0, 1.78, 0]} scale={[0.12, 0.14, 0.13]} onClick={onOrganClick} />
+          <Suspense fallback={null}>
+            <AnatomyLayerModels />
+          </Suspense>
 
-          {/* Lungs */}
-          <LungShape risk={get('lungs')} side="left" onClick={onOrganClick} />
-          <LungShape risk={get('lungs')} side="right" onClick={onOrganClick} />
-
-          {/* Heart */}
-          <HeartShape risk={get('heart')} onClick={onOrganClick} />
-
-          {/* Liver */}
-          <GlowOrgan risk={get('liver')} position={[0.12, 0.98, 0.06]} scale={[0.10, 0.06, 0.055]} rotation={[0, 0, -0.3]} onClick={onOrganClick} />
-
-          {/* Body Fat */}
-          <GlowOrgan risk={get('body-fat')} position={[0, 0.82, 0.1]} scale={[0.18, 0.09, 0.09]} onClick={onOrganClick} />
+          <GlowOrgan risk={getRisk('brain')} position={[0, 1.73, 0.02]} scale={[0.095, 0.11, 0.11]} onClick={onOrganClick} />
+          <LungShape risk={getRisk('lungs')} side="left" onClick={onOrganClick} />
+          <LungShape risk={getRisk('lungs')} side="right" onClick={onOrganClick} />
+          <HeartShape risk={getRisk('heart')} onClick={onOrganClick} />
+          <GlowOrgan risk={getRisk('liver')} position={[0.11, 0.98, 0.055]} scale={[0.13, 0.075, 0.06]} rotation={[0.04, 0.08, -0.3]} onClick={onOrganClick} />
+          <GlowOrgan risk={getRisk('body-fat')} position={[0, 0.9, 0.06]} scale={[0.17, 0.12, 0.09]} onClick={onOrganClick} />
         </group>
       </Float>
+
+      <ContactShadows position={[0, -0.95, 0]} opacity={0.42} scale={3.1} blur={2.4} far={2.3} resolution={1024} color="#261c39" />
 
       <OrbitControls
         enablePan={false}
         enableZoom
         minDistance={1.5}
         maxDistance={5}
-        minPolarAngle={Math.PI * 0.1}
+        minPolarAngle={Math.PI * 0.12}
         maxPolarAngle={Math.PI * 0.9}
         autoRotate
-        autoRotateSpeed={0.5}
+        autoRotateSpeed={0.42}
       />
     </>
   );
 }
 
-/* ── Export ── */
-export default function BodyVisualization3D({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (organ: OrganRisk) => void }) {
+export default function BodyVisualization3D({
+  risks,
+  onOrganClick,
+}: {
+  risks: OrganRisk[];
+  onOrganClick?: (organ: OrganRisk) => void;
+}) {
   return (
-    <div className="w-full h-full min-h-[460px] relative">
-      <Canvas camera={{ position: [0, 1, 3], fov: 36 }} style={{ background: 'transparent' }} gl={{ antialias: true, alpha: true }}>
+    <div className="relative h-full min-h-[460px] w-full">
+      <Canvas camera={{ position: [0, 1, 3.05], fov: 36 }} style={{ background: 'transparent' }} gl={{ antialias: true, alpha: true }}>
         <Scene risks={risks} onOrganClick={onOrganClick} />
       </Canvas>
-      <div className="absolute top-3 left-3 w-5 h-5 border-t-2 border-l-2 border-primary/20 rounded-tl-md pointer-events-none" />
-      <div className="absolute top-3 right-3 w-5 h-5 border-t-2 border-r-2 border-primary/20 rounded-tr-md pointer-events-none" />
-      <div className="absolute bottom-3 left-3 w-5 h-5 border-b-2 border-l-2 border-primary/20 rounded-bl-md pointer-events-none" />
-      <div className="absolute bottom-3 right-3 w-5 h-5 border-b-2 border-r-2 border-primary/20 rounded-br-md pointer-events-none" />
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/50 pointer-events-none">
-        Drag to rotate · Scroll to zoom · Click organs
+      <div className="pointer-events-none absolute left-3 top-3 h-5 w-5 rounded-tl-md border-l-2 border-t-2 border-primary/20" />
+      <div className="pointer-events-none absolute right-3 top-3 h-5 w-5 rounded-tr-md border-r-2 border-t-2 border-primary/20" />
+      <div className="pointer-events-none absolute bottom-3 left-3 h-5 w-5 rounded-bl-md border-b-2 border-l-2 border-primary/20" />
+      <div className="pointer-events-none absolute bottom-3 right-3 h-5 w-5 rounded-br-md border-b-2 border-r-2 border-primary/20" />
+      <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] text-muted-foreground/50">
+        Drag to rotate - Scroll to zoom - Click organs
       </div>
     </div>
   );
 }
+
+useGLTF.preload(ANGIOLOGY_MODEL_URL);
+useGLTF.preload(NEUROLOGY_MODEL_URL);
+useGLTF.preload(SPLANCHNOLOGY_MODEL_URL);
