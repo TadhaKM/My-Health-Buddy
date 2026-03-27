@@ -73,10 +73,10 @@ function DiseaseCard({ disease, index }: { disease: DiseaseRisk; index: number }
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-semibold text-foreground">{disease.name}</span>
-            <span className={`text-xs font-bold font-mono ${textColor}`}>{disease.score}%</span>
+            <span className={`text-xs font-bold font-mono ${textColor}`}>{disease.score.toFixed(2)}%</span>
           </div>
           <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
-            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${disease.score}%` }} />
+            <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${disease.score.toFixed(2)}%` }} />
           </div>
         </div>
         <span className={`text-[8px] px-1.5 py-0.5 rounded font-semibold uppercase shrink-0 ${
@@ -379,7 +379,7 @@ function HealthDataPage() {
                             <div>
                               <span className="text-xs font-semibold text-foreground">{d.name}</span>
                               <span className={`text-[10px] ml-1.5 font-mono ${d.risk === 'low' ? 'text-severity-good' : d.risk === 'moderate' ? 'text-severity-warn' : 'text-severity-bad'}`}>
-                                ({d.score}% risk)
+                                ({d.score.toFixed(2)}% risk)
                               </span>
                               <p className="text-[10px] text-muted-foreground mt-0.5">{d.description}</p>
                             </div>
