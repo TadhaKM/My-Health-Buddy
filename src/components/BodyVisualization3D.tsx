@@ -424,7 +424,7 @@ function Scene({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (or
 /* ── Export ── */
 export default function BodyVisualization3D({ risks, onOrganClick }: { risks: OrganRisk[]; onOrganClick?: (organ: OrganRisk) => void }) {
   return (
-    <div className="w-full h-full min-h-[460px] relative">
+    <div className="w-full h-full absolute inset-0">
       <Canvas camera={{ position: [0, 1, 3], fov: 36 }} style={{ background: 'transparent' }} gl={{ antialias: true, alpha: true }}>
         <Scene risks={risks} onOrganClick={onOrganClick} />
       </Canvas>
