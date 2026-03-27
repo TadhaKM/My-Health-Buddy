@@ -1,21 +1,8 @@
 import type { Habits, OrganId, OrganRisk, RiskLevel, TimelineYear } from '@/lib/health-types';
+import type { HabitsInput, OrganName, YearKey, SimulationResponse } from '../../lib/types';
+import { normalizeSimulationResponse } from '../../lib/simulation';
 
-type YearKey = '0' | '5' | '10' | '20';
-type ApiOrgan = 'lungs' | 'heart' | 'liver' | 'brain' | 'body_fat';
-
-type HabitsInput = {
-  smoking: 'none' | 'occasional' | 'daily';
-  alcohol: 'none' | 'weekends' | 'frequent';
-  sleep: '8h' | '6h' | '5h';
-  exercise: 'regular' | 'low' | 'none';
-  diet: 'balanced' | 'average' | 'poor';
-  chatText?: string;
-};
-
-export type SimulationResponse = {
-  organs: Record<ApiOrgan, Record<YearKey, number>>;
-  summary: string;
-};
+export type { SimulationResponse };
 
 const YEAR_LOOKUP: Record<TimelineYear, YearKey> = {
   0: '0',
@@ -24,10 +11,9 @@ const YEAR_LOOKUP: Record<TimelineYear, YearKey> = {
   20: '20',
 };
 
-const YEARS: YearKey[] = ['0', '5', '10', '20'];
-const ORGANS: ApiOrgan[] = ['lungs', 'heart', 'liver', 'brain', 'body_fat'];
+const ORGANS: OrganName[] = ['lungs', 'heart', 'liver', 'brain', 'body_fat'];
 
-const SCORE_BASELINE: Record<ApiOrgan, number> = {
+const SCORE_BASELINE: Record<OrganName, number> = {
   lungs: 6,
   heart: 6,
   liver: 6,
@@ -81,21 +67,6 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function toSafeInt(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return clampScore(value);
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return clampScore(parsed);
-    }
-  }
-
-  return null;
-}
-
 function toRisk(score: number): RiskLevel {
   return score < 20 ? 'low' : score < 45 ? 'moderate' : score < 70 ? 'high' : 'critical';
 }
@@ -116,20 +87,6 @@ function makeTimeline(year0Value: number): Record<YearKey, number> {
   const y5 = clampScore(y0 + Math.max(2, Math.round(y0 * 0.12)));
   const y10 = clampScore(Math.max(y5, y5 + Math.max(2, Math.round(y5 * 0.15))));
   const y20 = clampScore(Math.max(y10, y10 + Math.max(3, Math.round(y10 * 0.25))));
-
-  return {
-    '0': y0,
-    '5': y5,
-    '10': y10,
-    '20': y20,
-  };
-}
-
-function ensureNonDecreasingTimeline(timeline: Record<YearKey, number>): Record<YearKey, number> {
-  const y0 = clampScore(timeline['0']);
-  const y5 = clampScore(Math.max(y0, timeline['5']));
-  const y10 = clampScore(Math.max(y5, timeline['10']));
-  const y20 = clampScore(Math.max(y10, timeline['20']));
 
   return {
     '0': y0,
@@ -197,39 +154,9 @@ function organSummary(organ: OrganId, risk: RiskLevel): string {
   return summaries[organ][risk];
 }
 
-function parseMaybeJson(raw: unknown): unknown {
-  if (typeof raw === 'object' && raw !== null) {
-    return raw;
-  }
-
-  if (typeof raw !== 'string') {
-    return null;
-  }
-
-  const trimmed = raw.trim();
-  if (!trimmed) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const jsonSliceMatch = trimmed.match(/\{[\s\S]*\}/);
-    if (!jsonSliceMatch) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(jsonSliceMatch[0]);
-    } catch {
-      return null;
-    }
-  }
-}
-
 export function generateLocalSimulation(habits: Habits): SimulationResponse {
   const input = toHabitsInput(habits);
-  const scores: Record<ApiOrgan, number> = { ...SCORE_BASELINE };
+  const scores: Record<OrganName, number> = { ...SCORE_BASELINE };
 
   const smokingImpact = IMPACT_WEIGHTS.smoking[input.smoking];
   const alcoholImpact = IMPACT_WEIGHTS.alcohol[input.alcohol];
@@ -259,43 +186,6 @@ export function generateLocalSimulation(habits: Habits): SimulationResponse {
 
   simulation.summary = buildSimulationSummary(simulation);
   return simulation;
-}
-
-export function normalizeSimulationResponse(raw: unknown, fallback: SimulationResponse): SimulationResponse {
-  const parsed = parseMaybeJson(raw) as
-    | {
-        organs?: Partial<Record<ApiOrgan, Partial<Record<YearKey, unknown>>>> & {
-          ['body-fat']?: Partial<Record<YearKey, unknown>>;
-        };
-        summary?: unknown;
-      }
-    | null;
-
-  const normalizedOrgans = ORGANS.reduce((acc, organ) => {
-    const source = parsed?.organs?.[organ] ?? (organ === 'body_fat' ? parsed?.organs?.['body-fat'] : undefined);
-    const repaired = YEARS.reduce((timeline, year) => {
-      const candidate = toSafeInt(source?.[year]);
-      timeline[year] = candidate ?? fallback.organs[organ][year];
-      return timeline;
-    }, {} as Record<YearKey, number>);
-
-    acc[organ] = ensureNonDecreasingTimeline(repaired);
-    return acc;
-  }, {} as Record<ApiOrgan, Record<YearKey, number>>);
-
-  const rawSummary = typeof parsed?.summary === 'string' ? parsed.summary.trim() : '';
-  const summary = (rawSummary || fallback.summary)
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(' ')
-    .trim();
-
-  return {
-    organs: normalizedOrgans,
-    summary: summary || fallback.summary,
-  };
 }
 
 export async function fetchSimulation(habits: Habits, chatText?: string): Promise<SimulationResponse> {

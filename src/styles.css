@@ -1,5 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @custom-variant dark (&:is(.dark *));
 
@@ -129,59 +130,55 @@
   --sidebar-ring: oklch(0.55 0.25 310);
 }
 
-@layer base {
-  * {
-    border-color: var(--color-border);
-  }
-
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+* {
+  border-color: var(--color-border);
 }
 
-@layer utilities {
-  .glow-border {
-    box-shadow: 0 0 20px -5px var(--color-glow), inset 0 1px 0 0 oklch(1 0 0 / 60%);
-  }
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-  .glow-subtle {
-    box-shadow:
-      0 1px 3px oklch(0.55 0.25 310 / 8%),
-      0 8px 30px -8px oklch(0.55 0.25 310 / 12%);
-  }
+.glow-border {
+  box-shadow: 0 0 20px -5px var(--color-glow), inset 0 1px 0 0 oklch(1 0 0 / 60%);
+}
 
-  .card-elevated {
-    background: oklch(1 0 0);
-    border: 1px solid oklch(0.90 0.02 280);
-    box-shadow:
-      0 1px 2px oklch(0 0 0 / 4%),
-      0 4px 16px oklch(0 0 0 / 6%);
-  }
+.glow-subtle {
+  box-shadow:
+    0 1px 3px oklch(0.55 0.25 310 / 8%),
+    0 8px 30px -8px oklch(0.55 0.25 310 / 12%);
+}
 
-  .card-vibrant {
-    background: linear-gradient(135deg, oklch(1 0 0) 0%, oklch(0.97 0.02 310) 100%);
-    border: 1px solid oklch(0.88 0.04 310);
-    box-shadow:
-      0 1px 2px oklch(0 0 0 / 4%),
-      0 8px 24px -4px oklch(0.55 0.25 310 / 10%);
-  }
+.card-elevated {
+  background: oklch(1 0 0);
+  border: 1px solid oklch(0.90 0.02 280);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 4%),
+    0 4px 16px oklch(0 0 0 / 6%);
+}
 
-  .text-gradient {
-    background: linear-gradient(135deg, oklch(0.55 0.25 310), oklch(0.65 0.28 350), oklch(0.72 0.20 55));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+.card-vibrant {
+  background: linear-gradient(135deg, oklch(1 0 0) 0%, oklch(0.97 0.02 310) 100%);
+  border: 1px solid oklch(0.88 0.04 310);
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 4%),
+    0 8px 24px -4px oklch(0.55 0.25 310 / 10%);
+}
 
-  .bg-mesh {
-    background:
-      radial-gradient(at 20% 20%, oklch(0.90 0.08 310 / 30%) 0%, transparent 50%),
-      radial-gradient(at 80% 80%, oklch(0.90 0.06 185 / 20%) 0%, transparent 50%),
-      radial-gradient(at 50% 50%, oklch(0.92 0.05 55 / 15%) 0%, transparent 60%),
-      var(--color-background);
-  }
+.text-gradient {
+  background: linear-gradient(135deg, oklch(0.55 0.25 310), oklch(0.65 0.28 350), oklch(0.72 0.20 55));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-mesh {
+  background:
+    radial-gradient(at 20% 20%, oklch(0.90 0.08 310 / 30%) 0%, transparent 50%),
+    radial-gradient(at 80% 80%, oklch(0.90 0.06 185 / 20%) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, oklch(0.92 0.05 55 / 15%) 0%, transparent 60%),
+    var(--color-background);
 }
