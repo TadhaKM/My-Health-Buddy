@@ -120,6 +120,20 @@ function DashboardPage() {
           <HealthProgressBar risks={risks} demographics={demographics} habits={habits} years={years} />
           <KPIStrip risks={risks} onOrganHover={setHoveredOrgan} hoveredOrgan={hoveredOrgan} />
 
+          {/* Quick Presets */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-muted-foreground font-medium">Quick presets:</span>
+            {Object.entries(PRESETS).map(([key, preset]) => (
+              <button
+                key={key}
+                onClick={() => setHabits(preset.habits)}
+                className="text-xs px-3 py-1.5 rounded-lg border border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Body Visualization */}
             <section className="lg:col-span-7">
