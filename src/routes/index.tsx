@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
+import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import BodyVisualization3D from '@/components/BodyVisualization3D';
