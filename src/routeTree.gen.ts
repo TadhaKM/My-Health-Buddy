@@ -10,33 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiParseHabitsRouteImport } from './routes/api/parse-habits'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiParseHabitsRoute = ApiParseHabitsRouteImport.update({
+  id: '/api/parse-habits',
+  path: '/api/parse-habits',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/parse-habits': typeof ApiParseHabitsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/parse-habits'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/parse-habits'
+  id: '__root__' | '/' | '/api/parse-habits'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiParseHabitsRoute: typeof ApiParseHabitsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +58,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/parse-habits': {
+      id: '/api/parse-habits'
+      path: '/api/parse-habits'
+      fullPath: '/api/parse-habits'
+      preLoaderRoute: typeof ApiParseHabitsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiParseHabitsRoute: ApiParseHabitsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
