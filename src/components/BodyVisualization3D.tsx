@@ -141,6 +141,7 @@ function HumanBody() {
     );
   };
 
+  return (
     <group>
       {/* Head */}
       <group position={[0, 1.78, 0]}>
