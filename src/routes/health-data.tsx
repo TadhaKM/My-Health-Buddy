@@ -152,7 +152,11 @@ function HealthDataPage() {
   };
 
   const updateBiomarker = (key: keyof BloodBiomarkers, val: number | null) => {
-    setBiomarkers(prev => ({ ...prev, [key]: val }));
+    setBiomarkers(prev => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem('health-biomarkers', JSON.stringify(next));
+      return next;
+    });
   };
 
   const diseases = useMemo(() => calculateDiseaseRisks(habits, demographics, biomarkers), [habits, demographics, biomarkers]);
