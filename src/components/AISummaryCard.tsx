@@ -20,10 +20,10 @@ export default function AISummaryCard({ risks, years }: AISummaryCardProps) {
           : `Critical health risks are projected across multiple organs by year ${years}. Immediate lifestyle changes are strongly recommended.`;
 
   return (
-    <div className="glass-card rounded-xl p-4 space-y-3">
+    <div className="card-vibrant rounded-2xl p-5 space-y-3">
       <div className="flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-        <h3 className="text-sm font-medium text-foreground">AI Summary</h3>
+        <h3 className="text-sm font-semibold text-foreground">AI Summary</h3>
       </div>
       <AnimatePresence mode="wait">
         <motion.p

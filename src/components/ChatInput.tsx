@@ -17,8 +17,8 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="glass-card rounded-xl p-3">
-      <div className="flex gap-2">
+    <div className="card-elevated rounded-2xl p-3">
+      <div className="flex gap-2 items-center">
         <input
           type="text"
           value={input}
@@ -26,16 +26,16 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder="Describe your daily habits..."
           disabled={disabled}
-          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+          className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none px-2"
         />
         <Button
           variant="glow"
           size="icon"
           onClick={handleSend}
           disabled={disabled || !input.trim()}
-          className="shrink-0 h-8 w-8"
+          className="shrink-0 h-9 w-9 rounded-xl"
         >
-          <Send className="w-3.5 h-3.5" />
+          <Send className="w-4 h-4" />
         </Button>
       </div>
     </div>
