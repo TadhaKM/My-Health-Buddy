@@ -184,7 +184,7 @@ function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs font-semibold text-foreground">{risk.label}</span>
-                            <span className={`text-xs font-bold font-mono ${textColor}`}>{healthVal}%</span>
+                            <span className={`text-xs font-bold font-mono ${textColor}`}>{healthVal.toFixed(2)}%</span>
                           </div>
                           <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
                             <div className={`h-full rounded-full ${barColor} transition-all`} style={{ width: `${healthVal}%` }} />
