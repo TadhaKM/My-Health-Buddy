@@ -82,7 +82,9 @@ Also provide a brief, friendly 1-2 sentence summary of what you interpreted. Be 
       }
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      throw new Error("AI gateway error");
+      return new Response(JSON.stringify({ error: `AI gateway error: ${response.status} - ${t}` }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const data = await response.json();
