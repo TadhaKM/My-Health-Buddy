@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createFileRoute } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,8 @@ import {
   type OrganRisk,
   DEFAULT_HABITS,
   PRESETS,
-  calculateOrganRisks,
 } from '@/lib/health-types';
+import { fetchSimulation, generateLocalSimulation, toOrganRisks } from '@/lib/simulation-client';
 
 export const Route = createFileRoute('/')({
   component: FutureYou,
@@ -29,8 +29,35 @@ function FutureYou() {
   const [selectedOrgan, setSelectedOrgan] = useState<OrganRisk | null>(null);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulation, setSimulation] = useState(() => generateLocalSimulation(DEFAULT_HABITS));
 
-  const risks = calculateOrganRisks(habits, years);
+  useEffect(() => {
+    let isActive = true;
+
+    async function syncSimulation() {
+      setSimulationLoading(true);
+      const nextSimulation = await fetchSimulation(habits);
+      if (isActive) {
+        setSimulation(nextSimulation);
+        setSelectedOrgan(null);
+        setSimulationLoading(false);
+      }
+    }
+
+    syncSimulation().catch(() => {
+      if (isActive) {
+        setSimulation(generateLocalSimulation(habits));
+        setSimulationLoading(false);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [habits]);
+
+  const risks = useMemo(() => toOrganRisks(simulation, years), [simulation, years]);
 
   const handleOrganClick = useCallback((organ: OrganRisk) => {
     setSelectedOrgan(organ);
@@ -170,6 +197,10 @@ function FutureYou() {
 
             {/* AI Summary */}
             <AISummaryCard risks={risks} years={years} />
+
+            {simulationLoading && (
+              <div className="text-xs text-primary font-medium px-1">Refreshing simulation...</div>
+            )}
 
             {/* Organ Insight */}
             <OrganInsightCard organ={selectedOrgan} />
